@@ -8,6 +8,7 @@ using Microsoft.Graph;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using Microsoft.Extensions.Configuration;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -18,7 +19,14 @@ namespace appsvc_fnc_dev_userstats
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
+            IConfiguration config = new ConfigurationBuilder()
+
+          .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+          .AddEnvironmentVariables()
+          .Build();
+
             log.LogInformation("C# HTTP trigger function processed a request.");
+            var exceptionArray = config["exceptionArray"];
 
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
@@ -32,22 +40,21 @@ namespace appsvc_fnc_dev_userstats
 
             do
             {
-                
                 foreach (var group in groups)
                 {
-                    
+                    if(exceptionArray.Contains(group.Id) == false)
+                    {
                     var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
                     var total = users.Count();
                     GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
                     while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
+                    }
                 }
             }
             while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
-  
 
             return new OkObjectResult(GroupList);
         }
-
     }
     public class SingleGroup
     {
