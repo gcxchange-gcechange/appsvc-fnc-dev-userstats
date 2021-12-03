@@ -38,8 +38,7 @@ namespace appsvc_fnc_dev_userstats
                     
                     var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
                     var total = users.Count();
-                    GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description));
-   
+                    GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
                     while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
                 }
             }
@@ -57,14 +56,16 @@ namespace appsvc_fnc_dev_userstats
         public string groupId;
         public string creationDate;
         public string description;
+        public IEnumerable<string> groupType;
 
-        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description)
+        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType)
         {
             this.displayName = displayName;
             this.countMember = countMember;
             this.groupId = groupId;
             this.creationDate = creationDate;
             this.description = description;
+            this.groupType = groupType;
         }
     }
 }
