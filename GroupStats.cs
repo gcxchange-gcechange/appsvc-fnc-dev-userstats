@@ -26,7 +26,7 @@ namespace appsvc_fnc_dev_userstats
           .Build();
 
             log.LogInformation("C# HTTP trigger function processed a request.");
-            var exceptionArray = config["exceptionArray"];
+            var exceptionGroupsArray = config["exceptionGroupsArray"];
 
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
@@ -42,7 +42,7 @@ namespace appsvc_fnc_dev_userstats
             {
                 foreach (var group in groups)
                 {
-                    if(exceptionArray.Contains(group.Id) == false)
+                    if(exceptionGroupsArray.Contains(group.Id) == false)
                     {
                     var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
                     var total = users.Count();
