@@ -25,7 +25,6 @@ namespace appsvc_fnc_dev_userstats
           .AddEnvironmentVariables()
           .Build();
 
-            log.LogInformation("C# HTTP trigger function processed a request.");
             var exceptionGroupsArray = config["exceptionGroupsArray"];
 
             Auth auth = new Auth();

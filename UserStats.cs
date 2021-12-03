@@ -22,16 +22,14 @@ namespace appsvc_fnc_dev_userstats
            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
            .AddEnvironmentVariables()
            .Build();
-
-            log.LogInformation("C# HTTP trigger function processed a request.");
             var exceptionUsersArray = config["exceptionUsersArray"];
 
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
             List<SingleUser> userList = new List<SingleUser>();
+
             var users = await graphAPIAuth.Users
                 .Request()
-               // .Filter("identities/any(c:c/issuerAssignedId eq 'j.smith@yahoo.com' and c/issuer eq 'contoso.onmicrosoft.com')")
                 .Select("id,createdDateTime")
                 .GetAsync();
 
