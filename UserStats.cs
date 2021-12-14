@@ -28,10 +28,25 @@ namespace appsvc_fnc_dev_userstats
             var graphAPIAuth = auth.graphAuth(log);
             List<SingleUser> userList = new List<SingleUser>();
 
-            var users = await graphAPIAuth.Users
+            // Create a bucket to hold the users
+            List<User> users = new List<User>();
+
+            // Get the first page
+            IGraphServiceUsersCollectionPage usersPage = await graphAPIAuth
+                .Users
                 .Request()
                 .Select("id,createdDateTime")
                 .GetAsync();
+
+            // Add the first page of results to the user list
+            users.AddRange(usersPage.CurrentPage);
+
+            // Fetch each page and add those results to the list
+            while (usersPage.NextPageRequest != null)
+            {
+                usersPage = await usersPage.NextPageRequest.GetAsync();
+                users.AddRange(usersPage.CurrentPage);
+            }
 
             foreach (var user in users)
                     {
