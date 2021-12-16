@@ -44,12 +44,14 @@ namespace appsvc_fnc_dev_userstats
                     if(exceptionGroupsArray.Contains(group.Id) == false)
                     {
                         var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
+                        var total = 0;
                         do
                         {
-                            var total = users.Count();
-                            GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
+                            total += users.Count();
                         }
                         while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
+                        GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
+
                     }
                 }
             }
