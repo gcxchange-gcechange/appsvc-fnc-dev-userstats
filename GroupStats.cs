@@ -43,10 +43,13 @@ namespace appsvc_fnc_dev_userstats
                 {
                     if(exceptionGroupsArray.Contains(group.Id) == false)
                     {
-                    var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
-                    var total = users.Count();
-                    GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
-                    while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
+                        var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
+                        do
+                        {
+                            var total = users.Count();
+                            GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
+                        }
+                        while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
                     }
                 }
             }
