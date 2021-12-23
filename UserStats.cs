@@ -1,8 +1,4 @@
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using System.Collections.Generic;
@@ -10,12 +6,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace appsvc_fnc_dev_userstats
 {
-    public static class UserStats
+    class UserStats
     {
-        [FunctionName("UserStats")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        public async Task<List<usersData>> UserStatsDataAsync (ILogger log)
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -26,7 +19,7 @@ namespace appsvc_fnc_dev_userstats
 
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
-            List<SingleUser> userList = new List<SingleUser>();
+            List<usersData> userList = new List<usersData>();
 
             // Create a bucket to hold the users
             List<User> users = new List<User>();
@@ -49,28 +42,18 @@ namespace appsvc_fnc_dev_userstats
             }
 
             foreach (var user in users)
-                    {
-                        if (exceptionUsersArray.Contains(user.Id) == false)
-                        {
+            {
+                if (exceptionUsersArray.Contains(user.Id) == false)
+                {
                     log.LogInformation(user.Id);
-                            userList.Add(new SingleUser(user.Id, user.CreatedDateTime));
-                    
-                        }
-                    }
-                return new OkObjectResult(userList);
+                    userList.Add(new usersData()
+                    {
+                        Id = user.Id,
+                        creationDate = user.CreatedDateTime
+                    });
+                }
             }
+            return userList;
         }
     }
-    public class SingleUser
-    {
-        public string userId;
-        public System.DateTimeOffset? createDateTime;
-
-
-        public SingleUser(string userId, System.DateTimeOffset? createDateTime)
-        {
-            this.userId = userId;
-            this.createDateTime = createDateTime;
-        }
-    }
-
+}
