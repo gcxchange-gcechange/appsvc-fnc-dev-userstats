@@ -12,12 +12,10 @@ using Microsoft.Extensions.Configuration;
 
 namespace appsvc_fnc_dev_userstats
 {
-    public static class GroupStats
+    class GroupStats
     {
         [FunctionName("GroupStats")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        public async Task<List<SingleGroup>> GroupStatsDataAsync(ILogger log)
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -57,7 +55,7 @@ namespace appsvc_fnc_dev_userstats
             }
             while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
 
-            return new OkObjectResult(GroupList);
+            return GroupList;
         }
     }
     public class SingleGroup

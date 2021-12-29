@@ -26,8 +26,14 @@ namespace appsvc_fnc_dev_userstats
             //Get UserStats
             var userdata = new UserStats();
             var usersdata = await userdata.UserStatsDataAsync(log);
+            var ResultUsersStore = await StoreDataUserFile(context, usersdata, "userstats", log);
 
-            var ResultUsersStore = await StoreDataFile(context, usersdata, "userstats", log);
+            //Get GroupStats
+            var groupdata = new GroupStats();
+            var groupsdata = await groupdata.GroupStatsDataAsync(log);
+            var ResultGroupsStore = await StoreDataGroupFile(context, groupsdata, "groupstats", log);
+
+         //   var ResultGroupsStore = await StoreDataGroupFile(context, usersdata, "userstats", log);
 
             string responseMessage = ResultUsersStore
                 ? "Work as it should"
@@ -36,7 +42,7 @@ namespace appsvc_fnc_dev_userstats
             return new OkObjectResult(responseMessage);
         }
 
-        public static async Task<bool> StoreDataFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
+        public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
         {
             CreateContainerIfNotExists(log, context, containerName);
 
@@ -65,6 +71,53 @@ namespace appsvc_fnc_dev_userstats
             }
 
             string json = JsonConvert.SerializeObject(listUsersData.ToArray());
+
+            blob.Properties.ContentType = "application/json";
+
+            using (var ms = new MemoryStream())
+            {
+                LoadStreamWithJson(ms, json);
+                await blob.UploadFromStreamAsync(ms);
+            }
+            log.LogInformation($"Bolb {FileTitle} is uploaded to container {container.Name}");
+            await blob.SetPropertiesAsync();
+
+            return true;
+        }
+
+        public static async Task<bool> StoreDataGroupFile(ExecutionContext context, List<SingleGroup> groupsdata, string containerName, ILogger log)
+        {
+            CreateContainerIfNotExists(log, context, containerName);
+
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+
+            //CreateFileTitle with date
+            DateTime now = DateTime.Now;
+            string FileTitle = now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
+            log.LogInformation($"File {FileTitle}");
+
+            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+
+            //Create file with userData
+            List<groupsData> listGroupsData = new List<groupsData>();
+            foreach (var group in groupsdata)
+            {
+                log.LogInformation($"In storeFile function {group.groupId} - {group.creationDate}");
+
+                listGroupsData.Add(new groupsData()
+                {
+                    displayName = group.displayName,
+                    countMember = group.countMember,
+                    groupId = group.groupId,
+                    creationDate = group.creationDate,
+                    description = group.description,
+                    groupType = group.groupType
+                });
+            }
+
+            string json = JsonConvert.SerializeObject(listGroupsData.ToArray());
 
             blob.Properties.ContentType = "application/json";
 

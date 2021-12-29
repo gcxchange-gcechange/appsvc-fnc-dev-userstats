@@ -6,7 +6,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace appsvc_fnc_dev_userstats
@@ -18,11 +20,15 @@ namespace appsvc_fnc_dev_userstats
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log, ExecutionContext context)
         {
-            string containerName = "userstats";
-            string fileName = DateTime.Now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
-            var data = GetBlob(containerName, fileName, context, log);
+            string containerName = req.Query["containerName"];
+            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            dynamic data = JsonConvert.DeserializeObject(requestBody);
+            containerName = containerName ?? data?.containerName;
 
-            return new OkObjectResult(data);
+            string fileName = DateTime.Now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
+            var Getdata = GetBlob(containerName, fileName, context, log);
+
+            return new OkObjectResult(Getdata);
         }
         public static string GetBlob(string containerName, string fileName, ExecutionContext executionContext, ILogger log)
         {
