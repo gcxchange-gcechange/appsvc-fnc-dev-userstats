@@ -21,11 +21,13 @@ namespace appsvc_fnc_dev_userstats
             ILogger log, ExecutionContext context)
         {
             string containerName = req.Query["containerName"];
+
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic data = JsonConvert.DeserializeObject(requestBody);
             containerName = containerName ?? data?.containerName;
 
-            string fileName = DateTime.Now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
+            log.LogInformation($"name:{containerName}");
+            string fileName = DateTime.Now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
             var Getdata = GetBlob(containerName, fileName, context, log);
 
             return new OkObjectResult(Getdata);
@@ -46,9 +48,7 @@ namespace appsvc_fnc_dev_userstats
             CloudBlockBlob blob = container.GetBlockBlobReference($"{fileName}");
             // Get the blob file as text
             string contents = blob.DownloadTextAsync().Result;
-            log.LogInformation($"{contents}");
             return contents;
         }
-
     }
 }

@@ -17,9 +17,8 @@ namespace appsvc_fnc_dev_userstats
     public static class StoreData
     {
         [FunctionName("StoreData")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log, ExecutionContext context)
+        //Run everyday at 3am
+        public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
         {
             log.LogInformation($"C# Http trigger function executed at: {DateTime.Now}");
 
@@ -39,7 +38,7 @@ namespace appsvc_fnc_dev_userstats
                 ? "Work as it should"
                 : $"Something went wrong. Check the logs";
 
-            return new OkObjectResult(responseMessage);
+           // return new OkObjectResult(responseMessage);
         }
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
@@ -52,7 +51,7 @@ namespace appsvc_fnc_dev_userstats
 
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
-            string FileTitle = now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
+            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
             log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
@@ -95,7 +94,7 @@ namespace appsvc_fnc_dev_userstats
 
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
-            string FileTitle = now.ToString("dd/MM/yyyy") + "-" + containerName + ".json";
+            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
             log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
