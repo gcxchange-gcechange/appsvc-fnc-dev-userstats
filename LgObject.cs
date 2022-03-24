@@ -20,5 +20,15 @@ namespace appsvc_fnc_dev_userstats
         public string description;
         public IEnumerable<string> groupType;
     }
+    public class activeuserData
+    {
+        public string userid;
+        public string UserDisplayName;
+    }
+    public class countactiveuserData
+    {
+        public string name;
+        public int countActiveusers;
+    }
 
 }

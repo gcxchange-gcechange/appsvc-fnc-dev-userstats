@@ -6,6 +6,8 @@
     <_FunctionsSkipCleanOutput>true</_FunctionsSkipCleanOutput>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.5.0" />
+    <PackageReference Include="Azure.Monitor.Query" Version="1.1.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
     <PackageReference Include="Microsoft.Graph" Version="4.10.0" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="3.0.13" />
