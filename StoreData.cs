@@ -18,7 +18,8 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("StoreData")]
         //Run everyday at 3am
-        public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
+         public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
+
         {
             log.LogInformation($"C# Http trigger function executed at: {DateTime.Now}");
 
@@ -32,13 +33,18 @@ namespace appsvc_fnc_dev_userstats
             var groupsdata = await groupdata.GroupStatsDataAsync(log);
             var ResultGroupsStore = await StoreDataGroupFile(context, groupsdata, "groupstats", log);
 
-         //   var ResultGroupsStore = await StoreDataGroupFile(context, usersdata, "userstats", log);
+            //Get ActiveUsers
+            var activeuserdata = new ActiveUsers();
+            var activeusersdata = await activeuserdata.ActiveUsersDataAsync(log);
+            var ResultAcvtiveUsersStore = await StoreDataActiveUsersFile(context, activeusersdata, "activeusers", log);
+
+            //   var ResultGroupsStore = await StoreDataGroupFile(context, usersdata, "userstats", log);
 
             string responseMessage = ResultUsersStore
                 ? "Work as it should"
                 : $"Something went wrong. Check the logs";
 
-           // return new OkObjectResult(responseMessage);
+          //  return new OkObjectResult(responseMessage);
         }
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
@@ -52,7 +58,7 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            log.LogInformation($"File {FileTitle}");
+            //log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -68,6 +74,7 @@ namespace appsvc_fnc_dev_userstats
                     creationDate = user.creationDate,
                 });
             }
+
 
             string json = JsonConvert.SerializeObject(listUsersData.ToArray());
 
@@ -95,7 +102,7 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            log.LogInformation($"File {FileTitle}");
+           // log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -131,6 +138,50 @@ namespace appsvc_fnc_dev_userstats
             return true;
         }
 
+        public static async Task<bool> StoreDataActiveUsersFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.countactiveuserData> activeusersdata, string containerName, ILogger log)
+        {
+            CreateContainerIfNotExists(log, context, containerName);
+
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+
+            //CreateFileTitle with date
+            DateTime now = DateTime.Now;
+            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+           // log.LogInformation($"File {FileTitle}");
+
+            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+
+            //Create file with userData
+            List<countactiveuserData> allactiveusersdata = new List<countactiveuserData>();
+            foreach (var user in activeusersdata)
+            {
+                log.LogInformation($"In storeFile function {user.name} - {user.countActiveusers}");
+
+                allactiveusersdata.Add(new countactiveuserData()
+                {
+                    name = user.name,
+                    countActiveusers = user.countActiveusers,
+                });
+            }
+
+
+            string json = JsonConvert.SerializeObject(allactiveusersdata.ToArray());
+
+            blob.Properties.ContentType = "application/json";
+
+            using (var ms = new MemoryStream())
+            {
+                LoadStreamWithJson(ms, json);
+                await blob.UploadFromStreamAsync(ms);
+            }
+            log.LogInformation($"Bolb {FileTitle} is uploaded to container {container.Name}");
+            await blob.SetPropertiesAsync();
+
+            return true;
+        }
+
         private static async void CreateContainerIfNotExists(ILogger logger, ExecutionContext executionContext, string ContainerName)
         {
             CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
@@ -140,7 +191,7 @@ namespace appsvc_fnc_dev_userstats
             foreach (var item in containers)
             {
                 CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
-                blobContainer.CreateIfNotExistsAsync();
+               await blobContainer.CreateIfNotExistsAsync();
             }
         }
 
@@ -150,7 +201,7 @@ namespace appsvc_fnc_dev_userstats
                             .SetBasePath(executionContext.FunctionAppDirectory)
                             .AddJsonFile("local.settings.json", true, true)
                             .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["CloudStorageAccount"]);
+            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
             return storageAccount;
         }
         private static void LoadStreamWithJson(Stream ms, object obj)

@@ -7,6 +7,8 @@ Unserstats return GUID and createdDateTime
 
 Groupstat return Displayname, countNumber (number of member), group id, creation date time, description, and group type.
 
+ActiveUsersStats return the total number of active user in the last 30 days
+
 To be able to connect, you need some function config:
 
 - clientId: The application registration create for
@@ -14,3 +16,4 @@ To be able to connect, you need some function config:
 - tenantid: Tenant id where the app is
 - exceptionGroupsArray: list seperate by , of group id that we don't want to return 
 - exceptionUsersArray: list seperate by , of user id that we don't want to return 
+- workspaceId: Id of the workspace in Log Analytics
