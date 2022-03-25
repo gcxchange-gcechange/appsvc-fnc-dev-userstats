@@ -38,6 +38,7 @@ namespace appsvc_fnc_dev_userstats
             var client = new LogsQueryClient(cred);
             try
             {
+                //Connect to LA and get distinc log of users
                 Response<LogsQueryResult> response = await client.QueryWorkspaceAsync(
                     workspaceId,
                                 "SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | summarize LastCall = max(TimeGenerated) by UserDisplayName, UserId, UserType | distinct UserId, UserDisplayName, LastCall | where LastCall < ago(1d) | order by LastCall asc",
@@ -55,7 +56,7 @@ namespace appsvc_fnc_dev_userstats
                             userid = row["UserId"].ToString()
                     });
                 }
-
+                // remove duplicate value base on userid
                 var uniqueItems = ActiveuserList.GroupBy(i => i.userid).Select(g => g.FirstOrDefault());
 
                 List<countactiveuserData> getcountactiveuserData = new List<countactiveuserData>();
@@ -65,8 +66,6 @@ namespace appsvc_fnc_dev_userstats
                     name = "TotalActiveUser",
                     countActiveusers = uniqueItems.Count()
                 });
-
-                log.LogInformation($"{uniqueItems.Count()}");
                 return getcountactiveuserData;
             }
             catch (Exception ex)

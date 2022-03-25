@@ -18,7 +18,7 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("StoreData")]
         //Run everyday at 3am
-         public static async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+         public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
 
         {
             log.LogInformation($"C# Http trigger function executed at: {DateTime.Now}");
@@ -58,7 +58,7 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            log.LogInformation($"File {FileTitle}");
+            //log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -102,7 +102,7 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            log.LogInformation($"File {FileTitle}");
+           // log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -149,7 +149,7 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            log.LogInformation($"File {FileTitle}");
+           // log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
