@@ -21,13 +21,12 @@ namespace appsvc_fnc_dev_userstats
            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
            .AddEnvironmentVariables()
            .Build();
-            var exceptionUsersArray = config["exceptionActiveUsersArray"];
+
             string clientSecret = config["clientSecret"];
             string clientId = config["clientId"];
             string tenantid = config["tenantid"];
             string workspaceId = config["workspaceId"];
            
-
             var getActiveUserCount = await Activeusercount(tenantid, clientId, clientSecret, workspaceId, log);
 
             return getActiveUserCount;
@@ -55,7 +54,6 @@ namespace appsvc_fnc_dev_userstats
                             UserDisplayName = row["UserDisplayName"].ToString(),
                             userid = row["UserId"].ToString()
                     });
-                    
                 }
 
                 var uniqueItems = ActiveuserList.GroupBy(i => i.userid).Select(g => g.FirstOrDefault());
