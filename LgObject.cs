@@ -19,6 +19,7 @@ namespace appsvc_fnc_dev_userstats
         public string creationDate;
         public string description;
         public IEnumerable<string> groupType;
+        public List<string> userlist;
     }
     public class activeuserData
     {

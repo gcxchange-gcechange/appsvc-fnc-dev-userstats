@@ -18,8 +18,7 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("StoreData")]
         //Run everyday at 3am
-         public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
-
+        public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context)
         {
             log.LogInformation($"C# Http trigger function executed at: {DateTime.Now}");
 
@@ -44,7 +43,7 @@ namespace appsvc_fnc_dev_userstats
                 ? "Work as it should"
                 : $"Something went wrong. Check the logs";
 
-          //  return new OkObjectResult(responseMessage);
+            return new OkObjectResult(responseMessage);
         }
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
@@ -119,7 +118,8 @@ namespace appsvc_fnc_dev_userstats
                     groupId = group.groupId,
                     creationDate = group.creationDate,
                     description = group.description,
-                    groupType = group.groupType
+                    groupType = group.groupType,
+                    userlist = group.userlist
                 });
             }
 
