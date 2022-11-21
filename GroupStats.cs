@@ -43,12 +43,21 @@ namespace appsvc_fnc_dev_userstats
                     {
                         var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
                         var total = 0;
+                        string [] userlist = null;
+                        List<string> userListid = new List<string>();
+
+                        foreach (var user in users)
+                        {
+                            userListid.Add(user.Id);
+                        }
+
                         do
                         {
                             total += users.Count();
+                           
                         }
                         while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
-                        GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes));
+                        GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes, userListid));
 
                     }
                 }
@@ -66,8 +75,9 @@ namespace appsvc_fnc_dev_userstats
         public string creationDate;
         public string description;
         public IEnumerable<string> groupType;
+        public List<String> userlist;
 
-        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType)
+        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType, List<String> userlist)
         {
             this.displayName = displayName;
             this.countMember = countMember;
@@ -75,6 +85,7 @@ namespace appsvc_fnc_dev_userstats
             this.creationDate = creationDate;
             this.description = description;
             this.groupType = groupType;
+            this.userlist = userlist;
         }
     }
 }
