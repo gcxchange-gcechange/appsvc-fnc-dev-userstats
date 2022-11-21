@@ -43,7 +43,7 @@ namespace appsvc_fnc_dev_userstats
                 ? "Work as it should"
                 : $"Something went wrong. Check the logs";
 
-            return new OkObjectResult(responseMessage);
+            //return new OkObjectResult(responseMessage);
         }
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
