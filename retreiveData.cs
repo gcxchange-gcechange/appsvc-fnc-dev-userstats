@@ -21,13 +21,28 @@ namespace appsvc_fnc_dev_userstats
             ILogger log, ExecutionContext context)
         {
             string containerName = req.Query["containerName"];
+            //string dateParam = req.Query["selectedDate"];
+
+            log.LogInformation($"name:{containerName}");
+           // log.LogInformation($"date:{dateParam}");
+
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic data = JsonConvert.DeserializeObject(requestBody);
+            log.LogInformation($"body: {data}");
             containerName = containerName ?? data?.containerName;
+            string date = data?.selectedDate;
+            
+            
+           // dateParam = dateParam ?? data?.dateParam;
 
             log.LogInformation($"name:{containerName}");
-            string fileName = DateTime.Now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+            log.LogInformation($"date2:{date}");
+
+            // check if date is default (today) or different date
+           
+            string fileName = date.ToString() + "-" + containerName + ".json";
+           // string fileName = DateTime.Now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
             var Getdata = GetBlob(containerName, fileName, context, log);
 
             return new OkObjectResult(Getdata);
