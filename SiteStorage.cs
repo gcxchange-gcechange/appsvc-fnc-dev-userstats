@@ -55,14 +55,11 @@ namespace appsvc_fnc_dev_userstats
             //    log.LogInformation($"ERROR: {ex}");
             //}
             
-
-
        
 
             var groups = await graphAPIAuth.Groups
                 .Request()
                 .Header("ConsistencyLevel", "eventual")
-                //.Filter("Id eq '03414003-3e0a-4e0e-a0ca-c8360bd84b5f' ")
                 .Filter("groupTypes/any(c:c eq 'Unified')")
                 .GetAsync();
 
@@ -79,40 +76,8 @@ namespace appsvc_fnc_dev_userstats
 
 
 
-            //foreach(var group in groups)
-            //{
-            //    groupId = group.Id;
-
-            //    var driveData = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
-
-            //    foreach(var drive in driveData)
-            //    {
-            //        GroupList.Add(new Group(
-            //                groupId,
-            //                group.DisplayName,
-            //                drive.Id,
-            //                drive.Quota.Remaining.ToString(),
-            //                drive.Quota.Remaining.ToString(),
-            //                drive.Quota.Total.ToString()
-
-            //           ));
-
-            //        var folders = await graphAPIAuth.Groups[groupId].Drives[drive.Id].Root.Children.Request().GetAsync();
-
-            //        foreach( var item in folders) 
-            //        {
-
-            //        }
-            //    }
-
-            //}
-
-
             foreach (var group in groups)
             {
-                if (group.Id != null)
-
-                {
                     groupId = group.Id;
 
                     var drives = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
@@ -143,6 +108,7 @@ namespace appsvc_fnc_dev_userstats
 
                         }
                     }
+
                     GroupList.Add(new Group(
                         groupId,
                         group.DisplayName,
@@ -151,8 +117,6 @@ namespace appsvc_fnc_dev_userstats
                         quotaUsed,
                         folderListItems
                    ));
-
-                }
             }
 
 
@@ -172,11 +136,6 @@ namespace appsvc_fnc_dev_userstats
 
 
 
-            /*foreach (var group in GroupList)
-            {
-                log.LogInformation($"Group Info: Display Name: {group.displayName}, Group ID: {group.groupId}, Remaining Storage: {group.remainingStorage}, Used: {group.usedStorage}, Total: {group.totalStorage}");
-            }*/
-
             return new OkResult();
 
 
@@ -192,31 +151,6 @@ namespace appsvc_fnc_dev_userstats
             return storageAccount;
 
         }
-
-
-        //public class Group
-        //{
-        //    public string groupId;
-        //    public string displayName;
-        //    public string driveId;
-        //    public string remainingStorage;
-        //    public string usedStorage;
-        //    public string totalStorage;
-
-
-
-
-        //    public Group(string groupId, string displayName, string driveId, string remainingStorage, string usedStorage, string totalStorage)
-        //    {
-        //        this.groupId = groupId;
-        //        this.displayName = displayName;
-        //        this.driveId = driveId;
-        //        this.remainingStorage = remainingStorage;
-        //        this.usedStorage = usedStorage;
-        //        this.totalStorage = totalStorage;
-
-        //    }
-        //}
 
         public class Group
         {
