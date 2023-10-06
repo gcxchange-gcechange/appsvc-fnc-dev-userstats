@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json.Nodes;
@@ -27,7 +28,7 @@ namespace appsvc_fnc_dev_userstats
 
         // public async Task<List<Group>> StorageDataAsync(ILogger log)
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req,
             ILogger log, ExecutionContext context)
         {
             IConfiguration config = new ConfigurationBuilder()
@@ -41,49 +42,81 @@ namespace appsvc_fnc_dev_userstats
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
 
-            //the report requires Reports.Read.All permisisons
+            var unified = "groupTypes/any(c:c eq 'Unified')";
 
-            //try
-            //{
-            
-            //    var report = await graphAPIAuth.Reports.GetSharePointSiteUsageDetail("D7").Request().GetAsync();
-
-                   
-            //}
-            //catch (Exception ex)
-            //{
-            //    log.LogInformation($"ERROR: {ex}");
-            //}
-            
-       
 
             var groups = await graphAPIAuth.Groups
                 .Request()
-                .Header("ConsistencyLevel", "eventual")
-                .Filter("groupTypes/any(c:c eq 'Unified')")
+                .Filter($"{unified}")
+                .Top(5)
                 .GetAsync();
 
+            
+            // Create the batch request
+            var batch = new BatchRequestContent();
 
-            string groupId;
+            var firstRequest = new BatchRequestStep("1", new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/groups?$filter={$"{unified}"}&$select=id,displayName"));
+             
+            batch.AddBatchRequestStep(firstRequest);
+          
+            // send the reponse
+            var batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+
+            // process the reponse
+            var responses = await batchResponse.GetResponsesAsync();
+
+            string responseBody = await new StreamReader(responses["1"].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+            dynamic groupData = JsonConvert.DeserializeObject(responseBody);
+
+
+            log.LogInformation($"data: {groupData}");
+
+            string groupId = "";
+            string groupDisplayName = "";
             string driveId;
             string quotaRemaining;
             string quotaTotal;
             string quotaUsed;
 
-            List<Group> GroupList = new List<Group>();
-            List<Drive> Drive = new List<Drive>();
-            List<Folders> folderListItems = new List<Folders>();
+            foreach (var group in groupData.value)
+            {
+                groupId = group.id;
+                groupDisplayName = group.displayName;
 
+            
+            }
+                var secondRequest = new BatchRequestStep("2", new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/"));
+                batch.AddBatchRequestStep(secondRequest);
+
+                var secondBatchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+
+                var secondResponses = await secondBatchResponse.GetResponsesAsync();
+
+                string responseBodySecond = await new StreamReader(secondResponses["2"].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+                dynamic driveData = JsonConvert.DeserializeObject(responseBodySecond);
+    ;
+                log.LogInformation($"Drive data: {driveData}");
+
+
+
+
+
+
+
+            List<Group> GroupList = new List<Group>();
+            List<Folders> folderListItems = new List<Folders>();
 
 
             foreach (var group in groups)
             {
+                //log.LogInformation($"G:{groups.NextPageRequest}");
                     groupId = group.Id;
 
                     var drives = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
                     quotaRemaining = "";
                     quotaTotal = "";
                     quotaUsed = "";
+
 
                     foreach (var site in drives)
 
@@ -105,7 +138,6 @@ namespace appsvc_fnc_dev_userstats
 
                             folderListItems.Add(new Folders(item.Id, item.Name, item.Size.ToString(), item.CreatedDateTime.ToString(), item.LastModifiedDateTime.ToString()));
 
-
                         }
                     }
 
@@ -125,7 +157,7 @@ namespace appsvc_fnc_dev_userstats
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
-            log.LogInformation(jsonFile);
+           // log.LogInformation(jsonFile);
 
 
             //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
@@ -141,16 +173,16 @@ namespace appsvc_fnc_dev_userstats
 
         }
 
-        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
-        {
-            var config = new ConfigurationBuilder()
-                            .SetBasePath(executionContext.FunctionAppDirectory)
-                            .AddJsonFile("local.settings.json", true, true)
-                            .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
-            return storageAccount;
+        //private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
+        //{
+        //    var config = new ConfigurationBuilder()
+        //                    .SetBasePath(executionContext.FunctionAppDirectory)
+        //                    .AddJsonFile("local.settings.json", true, true)
+        //                    .AddEnvironmentVariables().Build();
+        //    CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
+        //    return storageAccount;
 
-        }
+        //}
 
         public class Group
         {
