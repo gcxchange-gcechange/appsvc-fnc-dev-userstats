@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.WindowsAzure.Storage;
 using Newtonsoft.Json;
 using System;
@@ -33,131 +34,213 @@ namespace appsvc_fnc_dev_userstats
         {
             IConfiguration config = new ConfigurationBuilder()
 
-          .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-          .AddEnvironmentVariables()
-          .Build();
 
-            
-
-            Auth auth = new Auth();
-            var graphAPIAuth = auth.graphAuth(log);
-
-            var unified = "groupTypes/any(c:c eq 'Unified')";
-
-
-            var groups = await graphAPIAuth.Groups
-                .Request()
-                .Filter($"{unified}")
-                .Top(5)
-                .GetAsync();
-
-            
-            // Create the batch request
-            var batch = new BatchRequestContent();
-
-            var firstRequest = new BatchRequestStep("1", new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/groups?$filter={$"{unified}"}&$select=id,displayName"));
-             
-            batch.AddBatchRequestStep(firstRequest);
-          
-            // send the reponse
-            var batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-
-            // process the reponse
-            var responses = await batchResponse.GetResponsesAsync();
-
-            string responseBody = await new StreamReader(responses["1"].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-            dynamic groupData = JsonConvert.DeserializeObject(responseBody);
-
-
-            log.LogInformation($"data: {groupData}");
-
-            string groupId = "";
-            string groupDisplayName = "";
-            string driveId;
-            string quotaRemaining;
-            string quotaTotal;
-            string quotaUsed;
-
-            foreach (var group in groupData.value)
-            {
-                groupId = group.id;
-                groupDisplayName = group.displayName;
-
-            
-            }
-                var secondRequest = new BatchRequestStep("2", new HttpRequestMessage(HttpMethod.Get, $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/"));
-                batch.AddBatchRequestStep(secondRequest);
-
-                var secondBatchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-
-                var secondResponses = await secondBatchResponse.GetResponsesAsync();
-
-                string responseBodySecond = await new StreamReader(secondResponses["2"].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-                dynamic driveData = JsonConvert.DeserializeObject(responseBodySecond);
-    ;
-                log.LogInformation($"Drive data: {driveData}");
-
-
-
-
-
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .AddEnvironmentVariables()
+            .Build();
 
 
             List<Group> GroupList = new List<Group>();
             List<Folders> folderListItems = new List<Folders>();
 
+            string groupId;
+            string groupDisplayName;
+            string driveId = "";
+            string quotaRemaining = "";
+            string quotaTotal = "";
+            string quotaUsed = "";
+            string siteId;
+            string fileId;
+            string listId;
 
-            foreach (var group in groups)
+
+
+            var groupData = await GetGroupsAsync(log);
+
+            foreach (var group in groupData.value)
             {
-                //log.LogInformation($"G:{groups.NextPageRequest}");
-                    groupId = group.Id;
+                groupId = group.id;
+                groupDisplayName = group.displayName;
+                log.LogInformation($"GROUP:{group}");
 
-                    var drives = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
-                    quotaRemaining = "";
-                    quotaTotal = "";
-                    quotaUsed = "";
+                var groups = new List<Task<dynamic>> 
+                {
+                    GetDriveDataAsync(groupId, log)
+                };
+
+                await Task.WhenAll(groups);
 
 
-                    foreach (var site in drives)
+                foreach (var driveData in groups)
 
+                {
+                    dynamic drive = await driveData;
+
+                    log.LogInformation($"2:{drive}");
+                    driveId = drive.id;
+                    quotaRemaining = drive.quota.remaining;
+                    quotaTotal = drive.quota.total;
+                    quotaUsed = drive.quota.used;
+
+
+                    var driveList = new List<Task<dynamic>> {
+                        GetFolderListsAsync(groupId, driveId, log)
+                    };
+
+                    await Task.WhenAll(driveList);
+
+                    foreach (var lists in driveList)
                     {
-                        driveId = site.Id;
-                        quotaRemaining = site.Quota.Remaining.ToString();
-                        quotaTotal = site.Quota.Total.ToString();
-                        quotaUsed = site.Quota.Used.ToString();
+                        dynamic list = await lists;
+                        log.LogInformation($"3:{list}");
+                        listId = list.id;
+                        siteId = list.parentReference.siteId;
 
+                        var folderList = await GetAllFolderListItemsAsync(groupId, driveId, log);
 
+                       
 
-                        var drive = await graphAPIAuth.Groups[groupId].Drives[driveId].Root.Children.Request().GetAsync();
-
-                        folderListItems = new List<Folders>();
-
-                        foreach (var item in drive)
-
+                        foreach (var item in folderList.value)
                         {
 
-                            folderListItems.Add(new Folders(item.Id, item.Name, item.Size.ToString(), item.CreatedDateTime.ToString(), item.LastModifiedDateTime.ToString()));
+                            log.LogInformation($"LAST:{item}");
+                            fileId = item.id;
+
+                            var itemIds = new List<Task<dynamic>>
+                            {
+                                GetFileDetailsAsync(siteId, listId, fileId, log)
+                            };
+
+                            await Task.WhenAll(itemIds);
+                            
+                            folderListItems = new List<Folders>();
+
+                            foreach (var listItem in itemIds)
+                            {
+                                dynamic listItems = await listItem;
+                                string fileName = listItems.fileName;
+                                string fileSize = listItems.size;
+                                string createdDate = listItems.createdDate;
+                                string createdBy = listItems.createdBy.user.displayName;
+                                string lastModifiedDate = listItems.lastModifiedDate;
+                                string lastModifiedBy = listItems.lastModifiedBy.email;
+
+                                
+
+                                log.LogInformation($"{listItems.name}");
+                                folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
+                            }
 
                         }
+
                     }
 
-                    GroupList.Add(new Group(
-                        groupId,
-                        group.DisplayName,
-                        quotaRemaining,
-                        quotaTotal,
-                        quotaUsed,
-                        folderListItems
-                   ));
+                   
+               
+                  
+                }
+
+                GroupList.Add(new Group(
+                    groupId,
+                    groupDisplayName,
+                    driveId,
+                    quotaRemaining,
+                    quotaUsed,
+                    quotaTotal,
+                    folderListItems
+
+                   
+               ));
             }
-
-
-            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
-           // log.LogInformation($"File {FileTitle}");
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
-           // log.LogInformation(jsonFile);
+            log.LogInformation($"JSON: {jsonFile}");
+
+           
+
+            //Auth auth = new Auth();
+            //var graphAPIAuth = auth.graphAuth(log);
+
+            //var unified = "groupTypes/any(c:c eq 'Unified')";
+
+            //List<Group> GroupList = new List<Group>();
+            //List<Folders> folderListItems = new List<Folders>();
+
+            //var groups = await graphAPIAuth.Groups
+            //    .Request()
+            //    .Filter($"{unified}")
+            //    .Top(5)
+            //    .GetAsync();
+
+
+
+
+            //string groupId;
+            //string groupDisplayName;
+            //string driveId;
+            //string quotaRemaining = "";
+            //string quotaTotal = "";
+            //string quotaUsed = "";
+
+
+
+
+            //List<Group> GroupList = new List<Group>();
+            //List<Folders> folderListItems = new List<Folders>();
+
+
+            //foreach (var group in groups)
+            //{
+            //    //log.LogInformation($"G:{groups.NextPageRequest}");
+            //        groupId = group.Id;
+
+            //        var drives = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
+            //        quotaRemaining = "";
+            //        quotaTotal = "";
+            //        quotaUsed = "";
+
+
+            //        foreach (var site in drives)
+
+            //        {
+            //            driveId = site.Id;
+            //            quotaRemaining = site.Quota.Remaining.ToString();
+            //            quotaTotal = site.Quota.Total.ToString();
+            //            quotaUsed = site.Quota.Used.ToString();
+
+
+
+            //            var drive = await graphAPIAuth.Groups[groupId].Drives[driveId].Root.Children.Request().GetAsync();
+
+            //            folderListItems = new List<Folders>();
+
+            //            foreach (var item in drive)
+
+            //            {
+
+            //                folderListItems.Add(new Folders(item.Id, item.Name, item.Size.ToString(), item.CreatedDateTime.ToString(), item.LastModifiedDateTime.ToString()));
+
+            //            }
+            //        }
+
+            //        GroupList.Add(new Group(
+            //            groupId,
+            //            group.DisplayName,
+            //            quotaRemaining,
+            //            quotaTotal,
+            //            quotaUsed,
+            //            folderListItems
+            //       ));
+            //}
+
+
+            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
+            // log.LogInformation($"File {FileTitle}");
+
+            //string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
+
+            // log.LogInformation(jsonFile);
 
 
             //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
@@ -172,6 +255,65 @@ namespace appsvc_fnc_dev_userstats
 
 
         }
+
+
+        private static async Task<dynamic> GetGroupsAsync(ILogger log)
+        {
+            var unified = "groupTypes/any(c:c eq 'Unified')";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$top=2";
+
+            return await SendGraphRequestAsync(requestUri, "1", log);
+        }
+
+        private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
+        {
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/";
+            log.LogInformation($"DriveURL2:{requestUri}");
+
+            return await SendGraphRequestAsync(requestUri, "2", log);
+        }
+
+        private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
+        {
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/";
+            log.LogInformation($"Folder List 3:{requestUri}");
+            return await SendGraphRequestAsync(requestUri, "3", log);
+        }
+
+        private static async Task<dynamic> GetAllFolderListItemsAsync(string groupId, string driveId, ILogger log)
+        {
+
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items";
+            log.LogInformation($"LIST ITEMS4:{requestUri}");
+            return await SendGraphRequestAsync(requestUri, "4", log);
+        }
+
+        private static async Task<dynamic> GetFileDetailsAsync(string siteId, string listId, string itemId, ILogger log)
+        {
+
+            var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem";
+            log.LogInformation($"ITEMDETAILS 5:{requestUri}");
+            return await SendGraphRequestAsync(requestUri, "5", log);
+        }
+
+
+        private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
+        {
+            Auth auth = new Auth();
+            var graphAPIAuth = auth.graphAuth(log);
+            var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            var batch = new BatchRequestContent();
+            var batchRequest = new BatchRequestStep(batchId, request);
+            batch.AddBatchRequestStep(batchRequest);
+
+            var batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+            var responses = await batchResponse.GetResponsesAsync();
+
+            var responseBody = await new StreamReader(responses[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+            //log.LogInformation($"RB: {responseBody}");
+            return JsonConvert.DeserializeObject(responseBody);
+        }
+
 
         //private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
         //{
@@ -188,18 +330,24 @@ namespace appsvc_fnc_dev_userstats
         {
             public string groupId;
             public string displayName;
+            public string driveId;
             public string remainingStorage;
             public string usedStorage;
             public string totalStorage;
+
             public List<Folders> folderlist;
 
 
 
 
-            public Group(string groupId, string displayName, string remainingStorage, string usedStorage, string totalStorage, List<Folders> folderlist)
+            public Group(string groupId, string displayName, string driveId, string remainingStorage, string usedStorage, string totalStorage,
+
+
+                List<Folders> folderlist)
             {
                 this.groupId = groupId;
                 this.displayName = displayName;
+                this.driveId = driveId;
                 this.remainingStorage = remainingStorage;
                 this.usedStorage = usedStorage;
                 this.totalStorage = totalStorage;
@@ -214,16 +362,20 @@ namespace appsvc_fnc_dev_userstats
             public string fileId;
             public string fileName;
             public string fileSize;
-            public string createdDateTime;
+            public string createdDate;
+            public string createdBy;
             public string lastModifiedDateTime;
+            public string lastModifiedBy;
 
-            public Folders(string fileId, string fileName, string fileSize, string createdDateTime, string lastModifiedDateTime)
+            public Folders(string fileId, string fileName, string fileSize, string createdDate, string createdBy, string lastModifiedDateTime ,string lastModifiedBy)
             {
                 this.fileId = fileId;
-                this.fileName = fileName;   
+                this.fileName = fileName;
                 this.fileSize = fileSize;
-                this.createdDateTime = createdDateTime;
-                this.lastModifiedDateTime = lastModifiedDateTime;   
+                this.createdDate = createdDate;
+                this.createdBy = createdBy;
+                this.lastModifiedDateTime = lastModifiedDateTime;
+                this.lastModifiedBy = lastModifiedBy;
             }
         }
 
