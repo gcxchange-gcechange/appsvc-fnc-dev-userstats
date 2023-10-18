@@ -28,9 +28,7 @@ namespace appsvc_fnc_dev_userstats
 
 
         // public async Task<List<Group>> StorageDataAsync(ILogger log)
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req,
-            ILogger log, ExecutionContext context)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -42,8 +40,6 @@ namespace appsvc_fnc_dev_userstats
 
             List<Group> GroupList = new List<Group>();
             List<Folders> folderListItems = new List<Folders>();
-            List<GroupItem> groupItems = new List<GroupItem>();
-
 
             string groupId;
             string groupDisplayName;
@@ -54,14 +50,13 @@ namespace appsvc_fnc_dev_userstats
             string siteId;
             string listId;
             string itemId;
-            string fileId = "";
-            string fileName = "";
-            string fileSize = "";
-            string createdDate = "";
-            string createdBy = "";
-            string lastModifiedDate = "";
-            string lastModifiedBy = "";
-
+            string fileId;
+            string fileName;
+            string fileSize;
+            string createdDate;
+            string createdBy;
+            string lastModifiedDate;
+            string lastModifiedBy;
 
 
             var groupData = await GetGroupsAsync(log);
@@ -70,7 +65,6 @@ namespace appsvc_fnc_dev_userstats
             {
                 groupId = group.id;
                 groupDisplayName = group.displayName;
-                log.LogInformation($"GROUP 1:{group}");
 
                 var groups = new List<Task<dynamic>> 
                 {
@@ -85,7 +79,6 @@ namespace appsvc_fnc_dev_userstats
                 {
                     dynamic drive = await driveData;
 
-                    log.LogInformation($"DRIVE2:{drive}");
                     driveId = drive.id;
                     quotaRemaining = drive.quota.remaining;
                     quotaTotal = drive.quota.total;
@@ -101,7 +94,6 @@ namespace appsvc_fnc_dev_userstats
                     foreach (var lists in driveList)
                     {
                         dynamic list = await lists;
-                        log.LogInformation($"LIST 3:{list}");
                         listId = list.id;
                         siteId = list.parentReference.siteId;
 
@@ -110,67 +102,48 @@ namespace appsvc_fnc_dev_userstats
                             GetAllFolderListItemsAsync(groupId, driveId, log)
                         };
 
-                        //var folderList = await GetAllFolderListItemsAsync(groupId, driveId, log);
                         await Task.WhenAll(listItems);
-                        
+
+                        folderListItems = new List<Folders>();
+
                         foreach (var item in listItems)
                         {
-                            log.LogInformation($"1{item}");
+                            //log.LogInformation($"1{item}");
                             dynamic ids = await item;
 
                             foreach( var id in ids.value)
                             {
                                 itemId = id.id;
-                                log.LogInformation($"ID:---{id.id}");
-
+                                //log.LogInformation($"ID:---{id.id}");
 
                                 var itemIds = new List<Task<dynamic>>
                                 {
+
                                 GetFileDetailsAsync(siteId, listId, itemId, log)
+
                                 };
 
                                 await Task.WhenAll(itemIds);
 
-
-                                folderListItems = new List<Folders>();
-
-
-                                foreach(var listItem in itemIds)
+                                foreach (var listItem in itemIds)
                                 {
+
                                     dynamic fileDetails = await listItem;
+                                    log.LogInformation($"NAME:{fileDetails.name}");
                                       fileId = fileDetails.id;
                                       fileName = fileDetails.name;
                                       fileSize = fileDetails.size;
                                       createdDate = fileDetails.createdDateTime;
-                                      createdBy = fileDetails.createdBy.user.email;
+                                      createdBy = fileDetails.createdBy.user.displayName;
                                       lastModifiedDate = fileDetails.lastModifiedDateTime;
-                                      lastModifiedBy = fileDetails.lastModifiedBy.user.email;
+                                      lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
 
-                                    //folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
-
-
-                                    GroupItem groupItem = new GroupItem
-                                    {
-                                        fileId = fileId,
-                                        fileName = fileName,
-                                        fileSize = fileSize,
-                                        createdDate = createdDate,
-                                        createdBy = createdBy,
-                                        lastModifiedDate = lastModifiedDate,
-                                        lastModifiedBy = lastModifiedBy,
-                                    };
-
-                                   groupItems.Add(groupItem);
-
+                                    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));     
+                             
                                 }
-                              
-
-                            }
-                          
+                            }  
                         }
-
                     }
-
                 }
 
                 GroupList.Add(new Group(
@@ -186,97 +159,12 @@ namespace appsvc_fnc_dev_userstats
                ));
             }
 
-            log.LogInformation($"G:{groupItems}");
+            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
+            // log.LogInformation($"File {FileTitle}");
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
             log.LogInformation($"JSON: {jsonFile}");
-
-           
-
-            //Auth auth = new Auth();
-            //var graphAPIAuth = auth.graphAuth(log);
-
-            //var unified = "groupTypes/any(c:c eq 'Unified')";
-
-            //List<Group> GroupList = new List<Group>();
-            //List<Folders> folderListItems = new List<Folders>();
-
-            //var groups = await graphAPIAuth.Groups
-            //    .Request()
-            //    .Filter($"{unified}")
-            //    .Top(5)
-            //    .GetAsync();
-
-
-
-
-            //string groupId;
-            //string groupDisplayName;
-            //string driveId;
-            //string quotaRemaining = "";
-            //string quotaTotal = "";
-            //string quotaUsed = "";
-
-
-
-
-            //List<Group> GroupList = new List<Group>();
-            //List<Folders> folderListItems = new List<Folders>();
-
-
-            //foreach (var group in groups)
-            //{
-            //    //log.LogInformation($"G:{groups.NextPageRequest}");
-            //        groupId = group.Id;
-
-            //        var drives = await graphAPIAuth.Groups[groupId].Drives.Request().GetAsync();
-            //        quotaRemaining = "";
-            //        quotaTotal = "";
-            //        quotaUsed = "";
-
-
-            //        foreach (var site in drives)
-
-            //        {
-            //            driveId = site.Id;
-            //            quotaRemaining = site.Quota.Remaining.ToString();
-            //            quotaTotal = site.Quota.Total.ToString();
-            //            quotaUsed = site.Quota.Used.ToString();
-
-
-
-            //            var drive = await graphAPIAuth.Groups[groupId].Drives[driveId].Root.Children.Request().GetAsync();
-
-            //            folderListItems = new List<Folders>();
-
-            //            foreach (var item in drive)
-
-            //            {
-
-            //                folderListItems.Add(new Folders(item.Id, item.Name, item.Size.ToString(), item.CreatedDateTime.ToString(), item.LastModifiedDateTime.ToString()));
-
-            //            }
-            //        }
-
-            //        GroupList.Add(new Group(
-            //            groupId,
-            //            group.DisplayName,
-            //            quotaRemaining,
-            //            quotaTotal,
-            //            quotaUsed,
-            //            folderListItems
-            //       ));
-            //}
-
-
-            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
-            // log.LogInformation($"File {FileTitle}");
-
-            //string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
-
-            // log.LogInformation(jsonFile);
-
 
             //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
             // CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
@@ -284,10 +172,7 @@ namespace appsvc_fnc_dev_userstats
 
             // CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
-
-
             return new OkResult();
-
 
         }
 
@@ -295,7 +180,27 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=2";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$expand";
+
+            try
+            {
+                return await SendGraphRequestAsync(requestUri, "1", log);
+            }
+            catch (ServiceException error)
+            {
+                if (error.Error.InnerError.Code == "429")
+                {
+                    if (error.ResponseHeaders.Contains("Retry-After"))
+                    {
+
+                    }
+                }
+                else
+                {
+                    log.LogInformation($"Error: {error.Message}");
+                }
+            }
+           
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
@@ -303,7 +208,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/?$select=id,quota";
-            log.LogInformation($"DriveURL2:{requestUri}");
+           // log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
@@ -311,7 +216,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list?select=id,name,displayName,createdDateTime,createdBy,lastModifiedDateTime,lastModifiedBy,parentReference";
-            log.LogInformation($"Folder List 3:{requestUri}");
+           // log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
 
@@ -319,15 +224,14 @@ namespace appsvc_fnc_dev_userstats
         {
 
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?select=id";
-            log.LogInformation($"LIST IDS:{requestUri}");
+           // log.LogInformation($"LIST IDS:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "4", log);
         }
 
         private static async Task<dynamic> GetFileDetailsAsync(string siteId, string listId, string itemId, ILogger log)
         {
-            log.LogInformation($"ITEMID: {itemId}");
-            var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem";
-            log.LogInformation($"ITEMDETAILS 5:{requestUri}");
+            var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem?select=createdDateTime,id,lastModifiedDateTime,name,webUrl,size,createdBy,lastModifiedBy";
+            //log.LogInformation($"ITEMDETAILS 5:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "5", log);
         }
 
@@ -345,7 +249,7 @@ namespace appsvc_fnc_dev_userstats
             var responses = await batchResponse.GetResponsesAsync();
 
             var responseBody = await new StreamReader(responses[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-            log.LogInformation($"RB: {responseBody}");
+           // log.LogInformation($"RB: {responseBody}");
             return JsonConvert.DeserializeObject(responseBody);
         }
 
@@ -412,17 +316,6 @@ namespace appsvc_fnc_dev_userstats
                 this.lastModifiedDateTime = lastModifiedDateTime;
                 this.lastModifiedBy = lastModifiedBy;
             }
-        }
-
-        public class GroupItem
-        {
-            public string fileId { get; internal set; }
-            public string fileName { get; internal set; }
-            public string fileSize { get; internal set; }
-            public string createdDate { get; internal set; }
-            public string createdBy { get; internal set; }
-            public string lastModifiedBy { get; internal set; }
-            public string lastModifiedDate { get; internal set; }
         }
 
 
