@@ -19,6 +19,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using System.Web.Http;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -108,13 +109,11 @@ namespace appsvc_fnc_dev_userstats
 
                         foreach (var item in listItems)
                         {
-                            //log.LogInformation($"1{item}");
                             dynamic ids = await item;
 
                             foreach( var id in ids.value)
                             {
                                 itemId = id.id;
-                                //log.LogInformation($"ID:---{id.id}");
 
                                 var itemIds = new List<Task<dynamic>>
                                 {
@@ -129,7 +128,6 @@ namespace appsvc_fnc_dev_userstats
                                 {
 
                                     dynamic fileDetails = await listItem;
-                                    log.LogInformation($"NAME:{fileDetails.name}");
                                       fileId = fileDetails.id;
                                       fileName = fileDetails.name;
                                       fileSize = fileDetails.size;
@@ -180,27 +178,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$expand";
-
-            try
-            {
-                return await SendGraphRequestAsync(requestUri, "1", log);
-            }
-            catch (ServiceException error)
-            {
-                if (error.Error.InnerError.Code == "429")
-                {
-                    if (error.ResponseHeaders.Contains("Retry-After"))
-                    {
-
-                    }
-                }
-                else
-                {
-                    log.LogInformation($"Error: {error.Message}");
-                }
-            }
-           
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
@@ -245,25 +223,56 @@ namespace appsvc_fnc_dev_userstats
             var batchRequest = new BatchRequestStep(batchId, request);
             batch.AddBatchRequestStep(batchRequest);
 
-            var batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-            var responses = await batchResponse.GetResponsesAsync();
+            BatchResponseContent batchResponse = null;
+             
+            
+            int maxRetryCount = 3;  
+            int retryDelayInSeconds = 10;  
 
-            var responseBody = await new StreamReader(responses[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-           // log.LogInformation($"RB: {responseBody}");
-            return JsonConvert.DeserializeObject(responseBody);
+            for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
+            {
+                batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                var responses = await batchResponse.GetResponsesAsync();
+
+                if (responses[batchId].Headers.Contains("Retry-After"))
+                {
+                    log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
+
+                    // Sleep for the specified delay before retrying
+                    await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
+                    retryDelayInSeconds *= 2; // Exponential backoff for retry delay
+                }
+                else
+                {
+                    break;  
+                }
+            }
+
+            if (batchResponse != null)
+            {
+
+                var response = await batchResponse.GetResponsesAsync();
+                var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+                log.LogInformation($"RB: {responseBody}");
+                return JsonConvert.DeserializeObject(responseBody);
+            }
+            else
+            {
+                log.LogError("Max retry count reached. Unable to proceed.");
+                return null;
+            }
         }
 
+        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
+        {
+            var config = new ConfigurationBuilder()
+                            .SetBasePath(executionContext.FunctionAppDirectory)
+                            .AddJsonFile("local.settings.json", true, true)
+                            .AddEnvironmentVariables().Build();
+            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
+            return storageAccount;
 
-        //private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
-        //{
-        //    var config = new ConfigurationBuilder()
-        //                    .SetBasePath(executionContext.FunctionAppDirectory)
-        //                    .AddJsonFile("local.settings.json", true, true)
-        //                    .AddEnvironmentVariables().Build();
-        //    CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
-        //    return storageAccount;
-
-        //}
+        }
 
         public class Group
         {
