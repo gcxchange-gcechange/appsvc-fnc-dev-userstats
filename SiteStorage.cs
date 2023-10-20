@@ -1,25 +1,19 @@
-﻿using Azure;
-using Azure.Core;
+﻿
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Graph;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.WindowsAzure.Storage;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using System.Web.Http;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -29,7 +23,7 @@ namespace appsvc_fnc_dev_userstats
 
 
         // public async Task<List<Group>> StorageDataAsync(ILogger log)
-        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context )
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -152,28 +146,29 @@ namespace appsvc_fnc_dev_userstats
                     quotaUsed,
                     quotaTotal,
                     folderListItems
-
                    
                ));
             }
 
-            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
-            // log.LogInformation($"File {FileTitle}");
+            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
+            log.LogInformation($"File {FileTitle}");
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
+            
 
             log.LogInformation($"JSON: {jsonFile}");
 
-            //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            // CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            // CloudBlobContainer container = blobClient.GetContainerReference("groupSiteStorage");
+           CreateContainerIfNotExists(context, "groupSiteStorage", log);
 
-            // CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("groupSiteStorage");
+
+            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
             return new OkResult();
 
         }
-
 
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
@@ -213,7 +208,6 @@ namespace appsvc_fnc_dev_userstats
             return await SendGraphRequestAsync(requestUri, "5", log);
         }
 
-
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
         {
             Auth auth = new Auth();
@@ -225,7 +219,6 @@ namespace appsvc_fnc_dev_userstats
 
             BatchResponseContent batchResponse = null;
              
-            
             int maxRetryCount = 3;  
             int retryDelayInSeconds = 10;  
 
@@ -237,7 +230,6 @@ namespace appsvc_fnc_dev_userstats
                 if (responses[batchId].Headers.Contains("Retry-After"))
                 {
                     log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
-
                     // Sleep for the specified delay before retrying
                     await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
                     retryDelayInSeconds *= 2; // Exponential backoff for retry delay
@@ -253,13 +245,27 @@ namespace appsvc_fnc_dev_userstats
 
                 var response = await batchResponse.GetResponsesAsync();
                 var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-                log.LogInformation($"RB: {responseBody}");
+               // log.LogInformation($"RB: {responseBody}");
                 return JsonConvert.DeserializeObject(responseBody);
             }
             else
             {
                 log.LogError("Max retry count reached. Unable to proceed.");
                 return null;
+            }
+        }
+
+        private static async void CreateContainerIfNotExists( ExecutionContext executionContext, string containerName, ILogger log)
+        {
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            string[] containers = new string[] { containerName };
+            log.LogInformation("Create container");
+            foreach (var item in containers)
+            {
+                log.LogInformation($"ITEM:{item}");
+                CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
+                await blobContainer.CreateIfNotExistsAsync();
             }
         }
 
@@ -270,6 +276,7 @@ namespace appsvc_fnc_dev_userstats
                             .AddJsonFile("local.settings.json", true, true)
                             .AddEnvironmentVariables().Build();
             CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
+
             return storageAccount;
 
         }
