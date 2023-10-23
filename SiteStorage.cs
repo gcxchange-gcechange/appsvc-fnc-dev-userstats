@@ -18,13 +18,11 @@ using Newtonsoft.Json.Linq;
 
 namespace appsvc_fnc_dev_userstats
 {
-    class StorageData
+    class SiteStorage
     {
         [FunctionName("SiteStorage")]
 
-
-        // public async Task<List<Group>> StorageDataAsync(ILogger log)
-        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context )
+        public async Task<List<SiteStorage>> groupSiteStorageDataAsync(ILogger log, ExecutionContext context)
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -175,9 +173,11 @@ namespace appsvc_fnc_dev_userstats
                 await blob.UploadFromStreamAsync(ms);
             }
 
-            await blob.SetPropertiesAsync(); 
-           
-            return new OkResult();
+            await blob.SetPropertiesAsync();
+
+            //return new OkResult();
+
+            return new List<SiteStorage>();
 
         }
 
