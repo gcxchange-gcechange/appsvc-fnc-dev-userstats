@@ -14,6 +14,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json.Linq;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -150,22 +151,32 @@ namespace appsvc_fnc_dev_userstats
                ));
             }
 
-            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "siteStorage" + ".json";
-            log.LogInformation($"File {FileTitle}");
 
-            string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
-            
-
-            log.LogInformation($"JSON: {jsonFile}");
-
-           CreateContainerIfNotExists(context, "groupSiteStorage", log);
+           CreateContainerIfNotExists(context, "groupsitestorage", log);
 
             CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("groupSiteStorage");
+            CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
+
+            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
+            log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
+            string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
+
+
+            log.LogInformation($"JSON: {jsonFile}");
+
+            blob.Properties.ContentType = "application/json";
+
+            using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
+            {
+                await blob.UploadFromStreamAsync(ms);
+            }
+
+            await blob.SetPropertiesAsync(); 
+           
             return new OkResult();
 
         }
@@ -220,7 +231,7 @@ namespace appsvc_fnc_dev_userstats
             BatchResponseContent batchResponse = null;
              
             int maxRetryCount = 3;  
-            int retryDelayInSeconds = 10;  
+            int retryDelayInSeconds = 3000;  
 
             for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
             {
