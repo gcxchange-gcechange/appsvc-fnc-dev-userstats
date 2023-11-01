@@ -22,7 +22,8 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("SiteStorage")]
 
-        public async Task<List<SiteStorage>> groupSiteStorageDataAsync(ILogger log, ExecutionContext context)
+        public static async Task  Run([TimerTrigger("0 0 3 * * 1")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+
         {
             IConfiguration config = new ConfigurationBuilder()
 
@@ -175,9 +176,6 @@ namespace appsvc_fnc_dev_userstats
 
             await blob.SetPropertiesAsync();
 
-            //return new OkResult();
-
-            return new List<SiteStorage>();
 
         }
 
