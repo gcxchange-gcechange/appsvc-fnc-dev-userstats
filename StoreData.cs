@@ -40,9 +40,9 @@ namespace appsvc_fnc_dev_userstats
 
             //   var ResultGroupsStore = await StoreDataGroupFile(context, usersdata, "userstats", log);
 
-
-            var groupSiteStorage = new SiteStorage();
-            var groupSiteStorageData = await groupSiteStorage.groupSiteStorageDataAsync(log, context);
+            //timer is different, need to be done in a seperate file
+           // var groupSiteStorage = new SiteStorage();
+            //var groupSiteStorageData = await groupSiteStorage.groupSiteStorageDataAsync(log, context);
 
             string responseMessage = ResultUsersStore
                 ? "Work as it should"
