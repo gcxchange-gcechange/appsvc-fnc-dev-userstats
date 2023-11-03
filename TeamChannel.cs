@@ -15,6 +15,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json.Linq;
+using System.Threading.Channels;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -55,29 +56,36 @@ namespace appsvc_fnc_dev_userstats
                    GetTeamChannelsDataAsync(groupId, log)
                 };
 
-                await Task.WhenAll(groups);
+                await Task.WhenAll(groups); 
+
 
 
                 foreach (var channelData in groups)
 
                 {
-                    dynamic channel  = await channelData;
 
-                    log.LogInformation($"Channel:{channel.value}");
+                    dynamic channel = await channelData;
 
-                 
+                    if (channel.value != null)
+                    {
+                     
+                        channelId = channel.value[0].id;
+                    }
 
 
-                    channelId = channel;
-                  
+                    var channelItems = new List<Task<dynamic>> {
+                         GetChannelItemsAsync(groupId, channelId, log)
+                    };
 
-                    //var driveList = new List<Task<dynamic>> {
-                    //    GetFolderListsAsync(groupId, channelId, log)
-                    //};
+                    await Task.WhenAll(channelItems);
 
-                    //await Task.WhenAll(driveList);
+                    foreach (var message in channelItems)
+                    {
+                        dynamic items = await message;
+                        log.LogInformation($"ITEMS:{items}");
+                    }
 
-                   
+
                 }
 
                 GroupList.Add(new Group(
@@ -104,7 +112,7 @@ namespace appsvc_fnc_dev_userstats
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
 
-            log.LogInformation($"JSON: {jsonFile}");
+            //log.LogInformation($"JSON: {jsonFile}");
 
             //blob.Properties.ContentType = "application/json";
 
@@ -130,18 +138,18 @@ namespace appsvc_fnc_dev_userstats
 
         private static async Task<dynamic> GetTeamChannelsDataAsync(string groupId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/team/channels";
-            log.LogInformation($"DriveURL2:{requestUri}");
+            var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels";
+            //log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
 
-        //private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
-        //{
-        //    var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/team/channels";
-        //    // log.LogInformation($"Folder List 3:{requestUri}");
-        //    return await SendGraphRequestAsync(requestUri, "3", log);
-        //}
+        private static async Task<dynamic> GetChannelItemsAsync(string groupId, string channelId, ILogger log)
+        {
+            var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels/{channelId}/messages";
+            // log.LogInformation($"Folder List 3:{requestUri}");
+            return await SendGraphRequestAsync(requestUri, "3", log);
+        }
 
         //private static async Task<dynamic> GetAllFolderListItemsAsync(string groupId, string driveId, ILogger log)
         //{
