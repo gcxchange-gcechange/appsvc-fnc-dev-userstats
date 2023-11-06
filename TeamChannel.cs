@@ -35,12 +35,13 @@ namespace appsvc_fnc_dev_userstats
 
 
             List<Group> GroupList = new List<Group>();
-            //List<Folders> folderListItems = new List<Folders>();
+           
 
             string groupId;
             string groupDisplayName;
             string channelId = "";
-            //string siteId;
+            string channelCount = "";
+            
   
 
 
@@ -56,9 +57,10 @@ namespace appsvc_fnc_dev_userstats
                    GetTeamChannelsDataAsync(groupId, log)
                 };
 
-                await Task.WhenAll(groups); 
+                await Task.WhenAll(groups);
 
 
+                List<string> ChannelList = new List<string>();
 
                 foreach (var channelData in groups)
 
@@ -66,10 +68,18 @@ namespace appsvc_fnc_dev_userstats
 
                     dynamic channel = await channelData;
 
+
                     if (channel.value != null)
                     {
-                     
+                        //foreach (var channelData2 in channel.value)
+                        //{
+                        //    log.LogInformation($"CHANNELD@{channelData2}");
+                        //    //ChannelList.Add(channelData2.value[0].id);
+                        //}
+
+
                         channelId = channel.value[0].id;
+                        channelCount = channel["@odata.count"];
                     }
 
 
@@ -79,10 +89,17 @@ namespace appsvc_fnc_dev_userstats
 
                     await Task.WhenAll(channelItems);
 
-                    foreach (var message in channelItems)
+                    foreach (var messages in channelItems)
                     {
-                        dynamic items = await message;
-                        log.LogInformation($"ITEMS:{items}");
+                        dynamic message = await messages;
+
+                        if (message.value != null)
+                        {
+
+                            log.LogInformation($"MESSAGE_Count:{message.value}");
+                        }
+
+                        
                     }
 
 
@@ -91,8 +108,8 @@ namespace appsvc_fnc_dev_userstats
                 GroupList.Add(new Group(
                     groupId,
                     groupDisplayName,
-                    channelId
-
+                    channelId,
+                    channelCount
 
                ));
             }
@@ -244,19 +261,16 @@ namespace appsvc_fnc_dev_userstats
             public string groupId;
             public string displayName;
             public string channelId;
-
-
-            
-
+            public string channelCount;
 
 
 
-            public Group(string groupId, string displayName, string channelId )
+            public Group(string groupId, string displayName, string channelId, string channelCount )
             {
                 this.groupId = groupId;
                 this.displayName = displayName;
                 this.channelId = channelId;
- 
+                this.channelCount = channelCount;
 
 
             }
