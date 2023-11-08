@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json.Linq;
 using System.Threading.Channels;
+using static appsvc_fnc_dev_userstats.TeamChannels;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -39,8 +40,9 @@ namespace appsvc_fnc_dev_userstats
 
             string groupId;
             string groupDisplayName;
-            string channelId = "";
+            string channelId;
             string channelCount = "";
+            string messageCount = "";
             
   
 
@@ -59,57 +61,95 @@ namespace appsvc_fnc_dev_userstats
 
                 await Task.WhenAll(groups);
 
+                log.LogInformation($"Groups{groups}");
 
-                List<string> ChannelList = new List<string>();
+                List<dynamic> ChannelList = new List<dynamic>();
 
-                foreach (var channelData in groups)
-
+                foreach ( var channels in groups)
                 {
 
-                    dynamic channel = await channelData;
-
-
-                    if (channel.value != null)
+                    dynamic channel = await channels;
+                    
+                    try
                     {
-                        //foreach (var channelData2 in channel.value)
-                        //{
-                        //    log.LogInformation($"CHANNELD@{channelData2}");
-                        //    //ChannelList.Add(channelData2.value[0].id);
-                        //}
-
-
-                        channelId = channel.value[0].id;
+                        //log.LogInformation($"CHANN-VALUE{channel.value}");
+                        ChannelList.Add(new { channel.value });
                         channelCount = channel["@odata.count"];
-                    }
 
-
-                    var channelItems = new List<Task<dynamic>> {
-                         GetChannelItemsAsync(groupId, channelId, log)
-                    };
-
-                    await Task.WhenAll(channelItems);
-
-                    foreach (var messages in channelItems)
-                    {
-                        dynamic message = await messages;
-
-                        if (message.value != null)
+                        foreach (var messages in ChannelList )
                         {
+                            log.LogInformation($"{messages.value[0].id}");
+                        } 
 
-                            log.LogInformation($"MESSAGE_Count:{message.value}");
-                        }
-
-                        
                     }
-
+                    catch (Exception e)
+                    {
+                        log.LogInformation($"Error{e}");
+                        channelCount = null;
+                    }
+                 
 
                 }
+
+                
+
+                //List<dynamic> ChannelList = new List<dynamic>();
+
+                //foreach (var channelData in groups)
+
+                //{
+
+                //    dynamic channel = await channelData;
+                //    log.LogInformation($"{channel.error}");
+
+                //    if (channel.value != null)
+                //    {
+                //        foreach (var channelData2 in channel.value)
+                //        {
+
+                //            ChannelList.Add(new{ channelData2.id});
+                //            channelCount = channel["@odata.count"];
+
+                //            foreach (var list in ChannelList)
+                //            {
+                                
+                //                log.LogInformation($"LIST:{list.id}");
+
+                //                channelId = list.id;
+
+                //                var channelItems = new List<Task<dynamic>> {
+                //                     GetChannelItemsAsync(groupId, channelId, log)
+                //                };
+
+                //                await Task.WhenAll(channelItems);
+
+                //                foreach (var messages in channelItems)
+                //                {
+                //                    dynamic message = await messages;
+
+                //                    log.LogInformation($"MESSGAE: {message}");
+
+                //                    if (message.value != null)
+                //                    {
+                //                        messageCount = message["@odata.count"];
+                //                        log.LogInformation($"MESSAGE_Count:{message.value}");
+
+                //                    }
+
+
+                //                }
+                //            }
+                //        }
+                       
+                //    } 
+
+                //}
 
                 GroupList.Add(new Group(
                     groupId,
                     groupDisplayName,
-                    channelId,
-                    channelCount
+                    channelCount,
+                    messageCount
 
                ));
             }
@@ -148,6 +188,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
+   
             var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
@@ -155,13 +196,13 @@ namespace appsvc_fnc_dev_userstats
 
         private static async Task<dynamic> GetTeamChannelsDataAsync(string groupId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels";
-            //log.LogInformation($"DriveURL2:{requestUri}");
+            var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels?$select=id";
+            log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
 
-        private static async Task<dynamic> GetChannelItemsAsync(string groupId, string channelId, ILogger log)
+        private static async Task<dynamic> GetChannelMessagesAsync(string groupId, string channelId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels/{channelId}/messages";
             // log.LogInformation($"Folder List 3:{requestUri}");
@@ -260,19 +301,31 @@ namespace appsvc_fnc_dev_userstats
         {
             public string groupId;
             public string displayName;
-            public string channelId;
+            //public string channelId;
             public string channelCount;
+            public string messageCount;
 
 
 
-            public Group(string groupId, string displayName, string channelId, string channelCount )
+            public Group(string groupId, string displayName,  string channelCount, string messageCount )
             {
                 this.groupId = groupId;
                 this.displayName = displayName;
-                this.channelId = channelId;
+                //this.channelId = channelId;
                 this.channelCount = channelCount;
+                this.messageCount = messageCount;
 
 
+            }
+        }
+
+        public class ChannelIds
+        {
+            public string channeId;
+
+            public ChannelIds(string channeId)
+            {
+                this.channeId = channeId;
             }
         }
 
