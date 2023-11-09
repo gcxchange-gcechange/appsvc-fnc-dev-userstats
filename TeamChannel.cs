@@ -17,6 +17,7 @@ using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json.Linq;
 using System.Threading.Channels;
 using static appsvc_fnc_dev_userstats.TeamChannels;
+using Microsoft.Identity.Client;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -72,14 +73,41 @@ namespace appsvc_fnc_dev_userstats
                     
                     try
                     {
-                        //log.LogInformation($"CHANN-VALUE{channel.value}");
-                        ChannelList.Add(new { channel.value });
+                       
+                        //ChannelList.Add(new { channel.value }); 
+
                         channelCount = channel["@odata.count"];
 
-                        foreach (var messages in ChannelList )
+                        //log.LogInformation($"CHANN-VALUE{channel.value}");
+
+                        if(channel.value != null)
                         {
-                            log.LogInformation($"{messages.value[0].id}");
-                        } 
+                            foreach (var channelObj in channel.value)
+                            {
+                                log.LogInformation($"ID:{channelObj.id}");
+
+                                string channelObjId = channelObj.id;
+
+                                var channelMessages = new List<Task<dynamic>>
+                                {
+                                    GetChannelMessagesAsync(groupId, channelObjId, log)
+                                };
+
+                                await Task.WhenAll(channelMessages);
+
+                                foreach (var message in channelMessages)
+                                {
+                                    dynamic messages = await message;
+                                    log.LogInformation($"MESSAGES:{messages.value}");
+                                }
+
+                            }
+
+                        }
+
+
+                    
+
 
                     }
                     catch (Exception e)
@@ -205,7 +233,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetChannelMessagesAsync(string groupId, string channelId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/teams/{groupId}/channels/{channelId}/messages";
-            // log.LogInformation($"Folder List 3:{requestUri}");
+            log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
 
