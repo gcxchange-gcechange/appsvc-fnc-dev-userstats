@@ -64,7 +64,9 @@ namespace appsvc_fnc_dev_userstats
 
                 log.LogInformation($"Groups{groups}");
 
-                List<dynamic> ChannelList = new List<dynamic>();
+                //List<dynamic> ChannelList = new List<dynamic>();
+
+                messageCount = "";
 
                 foreach ( var channels in groups)
                 {
@@ -80,11 +82,12 @@ namespace appsvc_fnc_dev_userstats
 
                         //log.LogInformation($"CHANN-VALUE{channel.value}");
 
-                        if(channel.value != null)
+
+                        if (channel.value != null)
                         {
                             foreach (var channelObj in channel.value)
                             {
-                                log.LogInformation($"ID:{channelObj.id}");
+                                //log.LogInformation($"ID:{channelObj.id}");
 
                                 string channelObjId = channelObj.id;
 
@@ -95,10 +98,13 @@ namespace appsvc_fnc_dev_userstats
 
                                 await Task.WhenAll(channelMessages);
 
+                              
+
                                 foreach (var message in channelMessages)
                                 {
                                     dynamic messages = await message;
-                                    log.LogInformation($"MESSAGES:{messages.value}");
+                                    messageCount = messages["@odata.count"];
+                                    log.LogInformation($"MESSAGES:{messages}");
                                 }
 
                             }
