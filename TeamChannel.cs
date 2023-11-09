@@ -125,59 +125,6 @@ namespace appsvc_fnc_dev_userstats
 
                 }
 
-                
-
-                //List<dynamic> ChannelList = new List<dynamic>();
-
-                //foreach (var channelData in groups)
-
-                //{
-
-                //    dynamic channel = await channelData;
-                //    log.LogInformation($"{channel.error}");
-
-                //    if (channel.value != null)
-                //    {
-                //        foreach (var channelData2 in channel.value)
-                //        {
-
-                //            ChannelList.Add(new{ channelData2.id});
-                //            channelCount = channel["@odata.count"];
-
-                //            foreach (var list in ChannelList)
-                //            {
-                                
-                //                log.LogInformation($"LIST:{list.id}");
-
-                //                channelId = list.id;
-
-                //                var channelItems = new List<Task<dynamic>> {
-                //                     GetChannelItemsAsync(groupId, channelId, log)
-                //                };
-
-                //                await Task.WhenAll(channelItems);
-
-                //                foreach (var messages in channelItems)
-                //                {
-                //                    dynamic message = await messages;
-
-                //                    log.LogInformation($"MESSGAE: {message}");
-
-                //                    if (message.value != null)
-                //                    {
-                //                        messageCount = message["@odata.count"];
-                //                        log.LogInformation($"MESSAGE_Count:{message.value}");
-
-                //                    }
-
-
-                //                }
-                //            }
-                //        }
-                       
-                //    } 
-
-                //}
 
                 GroupList.Add(new Group(
                     groupId,
@@ -242,21 +189,6 @@ namespace appsvc_fnc_dev_userstats
             log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
-
-        //private static async Task<dynamic> GetAllFolderListItemsAsync(string groupId, string driveId, ILogger log)
-        //{
-
-        //    var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?select=id";
-        //    // log.LogInformation($"LIST IDS:{requestUri}");
-        //    return await SendGraphRequestAsync(requestUri, "4", log);
-        //}
-
-        //private static async Task<dynamic> GetFileDetailsAsync(string siteId, string listId, string itemId, ILogger log)
-        //{
-        //    var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem?select=createdDateTime,id,lastModifiedDateTime,name,webUrl,size,createdBy,lastModifiedBy";
-        //    //log.LogInformation($"ITEMDETAILS 5:{requestUri}");
-        //    return await SendGraphRequestAsync(requestUri, "5", log);
-        //}
 
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
         {
