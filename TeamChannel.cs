@@ -41,9 +41,8 @@ namespace appsvc_fnc_dev_userstats
 
             string groupId;
             string groupDisplayName;
-            string channelId;
             string channelCount = "";
-            string messageCount = "";
+            string messageCount;
             
   
 
@@ -104,16 +103,12 @@ namespace appsvc_fnc_dev_userstats
                                 {
                                     dynamic messages = await message;
                                     messageCount = messages["@odata.count"];
-                                    log.LogInformation($"MESSAGES:{messages}");
+                                    //log.LogInformation($"MESSAGES:{messages}");
                                 }
 
                             }
 
-                        }
-
-
-                    
-
+                        }           
 
                     }
                     catch (Exception e)
@@ -189,6 +184,7 @@ namespace appsvc_fnc_dev_userstats
             log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
+
 
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
         {
