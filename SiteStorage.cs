@@ -22,7 +22,8 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("SiteStorage")]
 
-        public static async Task  Run([TimerTrigger("0 0 3 * * 1")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route =  null)] HttpRequest req, ILogger log, ExecutionContext context)
+        //public static async Task  Run([TimerTrigger("0 0 3 * * 1")] TimerInfo myTimer, ILogger log, ExecutionContext context)
 
         {
             IConfiguration config = new ConfigurationBuilder()
@@ -36,7 +37,7 @@ namespace appsvc_fnc_dev_userstats
             List<Group> GroupList = new List<Group>();
             List<Folders> folderListItems = new List<Folders>();
 
-            string groupId;
+            string groupId ;
             string groupDisplayName;
             string driveId = "";
             string quotaRemaining = "";
@@ -56,17 +57,29 @@ namespace appsvc_fnc_dev_userstats
 
             var groupData = await GetGroupsAsync(log);
 
-            foreach (var group in groupData.value)
-            {
-                groupId = group.id;
-                groupDisplayName = group.displayName;
+            log.LogInformation($"GroupData:{groupData}");
 
-                var groups = new List<Task<dynamic>> 
+            //var nextLink = groupData["@odata.nextLink"];
+
+            while (groupData["@odata.nextLink"] != null )
+            {
+                log.LogInformation("nextLink");
+             
+            }
+
+            foreach (var groups in groupData.value)
+            {
+                log.LogInformation($"GROUPS:{groups}");
+           
+
+                groupId = groups.id;
+                groupDisplayName = groups.displayName;
+                var groupsDetails = new List<Task<dynamic>> 
                 {
                     GetDriveDataAsync(groupId, log)
                 };
 
-                await Task.WhenAll(groups);
+                await Task.WhenAll(groupsDetails);
 
 
                 foreach (var driveData in groups)
@@ -151,30 +164,32 @@ namespace appsvc_fnc_dev_userstats
             }
 
 
-           CreateContainerIfNotExists(context, "groupsitestorage", log);
+           //CreateContainerIfNotExists(context, "groupsitestorage", log);
 
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
+           // CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+           // CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+           // CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
 
             string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
             log.LogInformation($"File {FileTitle}");
 
-            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+            //CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
 
             log.LogInformation($"JSON: {jsonFile}");
 
-            blob.Properties.ContentType = "application/json";
+            //blob.Properties.ContentType = "application/json";
 
-            using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
-            {
-                await blob.UploadFromStreamAsync(ms);
-            }
+            //using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
+            //{
+            //    await blob.UploadFromStreamAsync(ms);
+            //}
 
-            await blob.SetPropertiesAsync();
+            //await blob.SetPropertiesAsync();
+
+            return new OkResult();
 
 
         }
@@ -182,7 +197,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=99";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
