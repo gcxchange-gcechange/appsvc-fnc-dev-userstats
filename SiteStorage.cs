@@ -22,8 +22,8 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("SiteStorage")]
 
-        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route =  null)] HttpRequest req, ILogger log, ExecutionContext context)
-        //public static async Task  Run([TimerTrigger("0 0 3 * * 1")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+        //public static async Task Run([TimerTrigger("0 0 3 * * 1")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
 
         {
             IConfiguration config = new ConfigurationBuilder()
@@ -37,7 +37,7 @@ namespace appsvc_fnc_dev_userstats
             List<Group> GroupList = new List<Group>();
             List<Folders> folderListItems = new List<Folders>();
 
-            string groupId ;
+            string groupId;
             string groupDisplayName;
             string driveId = "";
             string quotaRemaining = "";
@@ -59,27 +59,17 @@ namespace appsvc_fnc_dev_userstats
 
             log.LogInformation($"GroupData:{groupData}");
 
-            //var nextLink = groupData["@odata.nextLink"];
-
-            while (groupData["@odata.nextLink"] != null )
+            foreach (var group in groupData.value)
             {
-                log.LogInformation("nextLink");
-             
-            }
+                groupId = group.id;
+                groupDisplayName = group.displayName;
 
-            foreach (var groups in groupData.value)
-            {
-                log.LogInformation($"GROUPS:{groups}");
-           
-
-                groupId = groups.id;
-                groupDisplayName = groups.displayName;
-                var groupsDetails = new List<Task<dynamic>> 
+                var groups = new List<Task<dynamic>>
                 {
                     GetDriveDataAsync(groupId, log)
                 };
 
-                await Task.WhenAll(groupsDetails);
+                await Task.WhenAll(groups);
 
 
                 foreach (var driveData in groups)
@@ -105,7 +95,7 @@ namespace appsvc_fnc_dev_userstats
                         listId = list.id;
                         siteId = list.parentReference.siteId;
 
-                        var listItems= new List<Task<dynamic>>
+                        var listItems = new List<Task<dynamic>>
                         {
                             GetAllFolderListItemsAsync(groupId, driveId, log)
                         };
@@ -118,7 +108,7 @@ namespace appsvc_fnc_dev_userstats
                         {
                             dynamic ids = await item;
 
-                            foreach( var id in ids.value)
+                            foreach (var id in ids.value)
                             {
                                 itemId = id.id;
 
@@ -135,18 +125,18 @@ namespace appsvc_fnc_dev_userstats
                                 {
 
                                     dynamic fileDetails = await listItem;
-                                      fileId = fileDetails.id;
-                                      fileName = fileDetails.name;
-                                      fileSize = fileDetails.size;
-                                      createdDate = fileDetails.createdDateTime;
-                                      createdBy = fileDetails.createdBy.user.displayName;
-                                      lastModifiedDate = fileDetails.lastModifiedDateTime;
-                                      lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
+                                    fileId = fileDetails.id;
+                                    fileName = fileDetails.name;
+                                    fileSize = fileDetails.size;
+                                    createdDate = fileDetails.createdDateTime;
+                                    createdBy = fileDetails.createdBy.user.displayName;
+                                    lastModifiedDate = fileDetails.lastModifiedDateTime;
+                                    lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
 
-                                    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));     
-                             
+                                    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
+
                                 }
-                            }  
+                            }
                         }
                     }
                 }
@@ -159,19 +149,19 @@ namespace appsvc_fnc_dev_userstats
                     quotaUsed,
                     quotaTotal,
                     folderListItems
-                   
+
                ));
             }
 
 
-           //CreateContainerIfNotExists(context, "groupsitestorage", log);
+            //CreateContainerIfNotExists(context, "groupsitestorage", log);
 
-           // CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-           // CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-           // CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
+            //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+            //CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            //CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
 
-            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
-            log.LogInformation($"File {FileTitle}");
+            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
+            //log.LogInformation($"File {FileTitle}");
 
             //CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -191,13 +181,12 @@ namespace appsvc_fnc_dev_userstats
 
             return new OkResult();
 
-
         }
 
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=99";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=10";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
@@ -205,7 +194,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/?$select=id,quota";
-           // log.LogInformation($"DriveURL2:{requestUri}");
+            // log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
@@ -213,7 +202,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list?select=id,name,displayName,createdDateTime,createdBy,lastModifiedDateTime,lastModifiedBy,parentReference";
-           // log.LogInformation($"Folder List 3:{requestUri}");
+            // log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
 
@@ -221,7 +210,7 @@ namespace appsvc_fnc_dev_userstats
         {
 
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?select=id";
-           // log.LogInformation($"LIST IDS:{requestUri}");
+            // log.LogInformation($"LIST IDS:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "4", log);
         }
 
@@ -242,9 +231,9 @@ namespace appsvc_fnc_dev_userstats
             batch.AddBatchRequestStep(batchRequest);
 
             BatchResponseContent batchResponse = null;
-             
-            int maxRetryCount = 3;  
-            int retryDelayInSeconds = 3000;  
+
+            int maxRetryCount = 3;
+            int retryDelayInSeconds = 3000;
 
             for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
             {
@@ -260,7 +249,7 @@ namespace appsvc_fnc_dev_userstats
                 }
                 else
                 {
-                    break;  
+                    break;
                 }
             }
 
@@ -269,7 +258,15 @@ namespace appsvc_fnc_dev_userstats
 
                 var response = await batchResponse.GetResponsesAsync();
                 var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-               // log.LogInformation($"RB: {responseBody}");
+                //log.LogInformation($"RB: {responseBody}");
+
+                dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
+
+                var nextPageLink = responseData["@odata.nextLink"];
+
+
+                log.LogInformation($"NEXTPAGELINK: { nextPageLink}");
+                
                 return JsonConvert.DeserializeObject(responseBody);
             }
             else
@@ -279,7 +276,7 @@ namespace appsvc_fnc_dev_userstats
             }
         }
 
-        private static async void CreateContainerIfNotExists( ExecutionContext executionContext, string containerName, ILogger log)
+        private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
         {
             CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
@@ -346,7 +343,7 @@ namespace appsvc_fnc_dev_userstats
             public string lastModifiedDateTime;
             public string lastModifiedBy;
 
-            public Folders(string fileId, string fileName, string fileSize, string createdDate, string createdBy, string lastModifiedDateTime ,string lastModifiedBy)
+            public Folders(string fileId, string fileName, string fileSize, string createdDate, string createdBy, string lastModifiedDateTime, string lastModifiedBy)
             {
                 this.fileId = fileId;
                 this.fileName = fileName;
