@@ -15,6 +15,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json.Linq;
+using static Microsoft.Graph.Constants;
+using System.Runtime.CompilerServices;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -121,21 +123,21 @@ namespace appsvc_fnc_dev_userstats
 
                                 await Task.WhenAll(itemIds);
 
-                                foreach (var listItem in itemIds)
-                                {
+                                //foreach (var listItem in itemIds)
+                                //{
 
-                                    dynamic fileDetails = await listItem;
-                                    fileId = fileDetails.id;
-                                    fileName = fileDetails.name;
-                                    fileSize = fileDetails.size;
-                                    createdDate = fileDetails.createdDateTime;
-                                    createdBy = fileDetails.createdBy.user.displayName;
-                                    lastModifiedDate = fileDetails.lastModifiedDateTime;
-                                    lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
+                                //    dynamic fileDetails = await listItem;
+                                //    fileId = fileDetails.id;
+                                //    fileName = fileDetails.name;
+                                //    fileSize = fileDetails.size;
+                                //    createdDate = fileDetails.createdDateTime;
+                                //    createdBy = fileDetails.createdBy.user.displayName;
+                                //    lastModifiedDate = fileDetails.lastModifiedDateTime;
+                                //    lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
 
-                                    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
+                                //    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
 
-                                }
+                                //}
                             }
                         }
                     }
@@ -225,6 +227,8 @@ namespace appsvc_fnc_dev_userstats
         {
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
+
+            log.LogInformation($"URI:{requestUri}");
             var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
             var batch = new BatchRequestContent();
             var batchRequest = new BatchRequestStep(batchId, request);
@@ -258,15 +262,35 @@ namespace appsvc_fnc_dev_userstats
 
                 var response = await batchResponse.GetResponsesAsync();
                 var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-                //log.LogInformation($"RB: {responseBody}");
+            
 
                 dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
 
                 var nextPageLink = responseData["@odata.nextLink"];
 
+                log.LogInformation($"NEXTPAGE LINK:____{nextPageLink}");
 
-                log.LogInformation($"NEXTPAGELINK: { nextPageLink}");
-                
+
+
+                if (nextPageLink != null)
+                {
+
+                    request = new HttpRequestMessage(HttpMethod.Get, nextPageLink);
+                    batchResponse.GetResponsesAsync(
+                    //batch = new BatchRequestContent();
+                    //batchRequest = new BatchRequestStep(batchId, request);
+                    //batch.AddBatchRequestStep(batchRequest);
+
+                    //batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                    //var responses = await batchResponse.GetResponsesAsync();
+
+                    //log.LogInformation($"RESPONSES{responses}");
+                }
+
+
+
+
+
                 return JsonConvert.DeserializeObject(responseBody);
             }
             else
@@ -275,6 +299,16 @@ namespace appsvc_fnc_dev_userstats
                 return null;
             }
         }
+
+
+        private static async Task<dynamic> HandleNextPage(string url, ILogger log)
+        {
+            log.LogInformation($"URL:--{url}");
+           
+
+            return await SendGraphRequestAsync(url, "1", log);
+        }
+
 
         private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
         {
