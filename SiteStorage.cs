@@ -268,23 +268,41 @@ namespace appsvc_fnc_dev_userstats
 
                 var nextPageLink = responseData["@odata.nextLink"];
 
-                log.LogInformation($"NEXTPAGE LINK:____{nextPageLink}");
+                //log.LogInformation($"NEXTPAGE LINK:____{nextPageLink}");
 
 
 
                 if (nextPageLink != null)
                 {
 
-                    request = new HttpRequestMessage(HttpMethod.Get, nextPageLink);
-                    batchResponse.GetResponsesAsync(
+                    log.LogInformation($"NEXTPAGE LINK2:____{nextPageLink}");
+
+
+                    var groupsNextPageUri = nextPageLink.ToString();
+
+                    var groupsHttpRequest = new HttpRequestMessage(HttpMethod.Get, groupsNextPageUri);
+                    batch.AddBatchRequestStep(groupsHttpRequest);
+
+                    var returnResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                    var responses = await returnResponse.GetResponsesAsync();
+            
+                    
+                    //request = new HttpRequestMessage(HttpMethod.Get, nextPageUri);
+                    //batch.AddBatchRequestStep(request);
+
+
+
+
+
+
                     //batch = new BatchRequestContent();
-                    //batchRequest = new BatchRequestStep(batchId, request);
+                    //batchRequest = new BatchRequestStep("1", request);
                     //batch.AddBatchRequestStep(batchRequest);
 
                     //batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                    //var responses = await batchResponse.GetResponsesAsync();
+                    //var responses = await batchResponse.GetNextLinkAsync();
 
-                    //log.LogInformation($"RESPONSES{responses}");
+                    log.LogInformation($"RESPONSES{responses}");
                 }
 
 
