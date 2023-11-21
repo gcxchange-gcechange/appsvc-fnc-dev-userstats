@@ -59,9 +59,9 @@ namespace appsvc_fnc_dev_userstats
 
             var groupData = await GetGroupsAsync(log);
 
-            log.LogInformation($"GroupData:{groupData}");
+            log.LogInformation($"{groupData}");
 
-            foreach (var group in groupData.value)
+            foreach (var group in groupData)
             {
                 groupId = group.id;
                 groupDisplayName = group.displayName;
@@ -72,17 +72,18 @@ namespace appsvc_fnc_dev_userstats
                 };
 
                 await Task.WhenAll(groups);
-
+                log.LogInformation($"GROUPS:{groups}");
 
                 foreach (var driveData in groups)
-
                 {
                     dynamic drive = await driveData;
+                    log.LogInformation($"driveData:{drive}");
 
-                    driveId = drive.id;
-                    quotaRemaining = drive.quota.remaining;
-                    quotaTotal = drive.quota.total;
-                    quotaUsed = drive.quota.used;
+
+                    driveId = drive[0].id;
+                    quotaRemaining = drive[0].quota.remaining;
+                    quotaTotal = drive[0].quota.total;
+                    quotaUsed = drive[0].quota.used;
 
 
                     var driveList = new List<Task<dynamic>> {
@@ -90,56 +91,22 @@ namespace appsvc_fnc_dev_userstats
                     };
 
                     await Task.WhenAll(driveList);
+                    log.LogInformation($"driveList:{driveList}");
+
+                    folderListItems = new List<Folders>();
 
                     foreach (var lists in driveList)
                     {
                         dynamic list = await lists;
-                        listId = list.id;
-                        siteId = list.parentReference.siteId;
+                        log.LogInformation($"LIST:{list.Count()}");
+ 
 
-                        var listItems = new List<Task<dynamic>>
-                        {
-                            GetAllFolderListItemsAsync(groupId, driveId, log)
-                        };
 
-                        await Task.WhenAll(listItems);
 
-                        folderListItems = new List<Folders>();
 
-                        foreach (var item in listItems)
-                        {
-                            dynamic ids = await item;
+                        
 
-                            foreach (var id in ids.value)
-                            {
-                                itemId = id.id;
-
-                                var itemIds = new List<Task<dynamic>>
-                                {
-
-                                GetFileDetailsAsync(siteId, listId, itemId, log)
-
-                                };
-
-                                await Task.WhenAll(itemIds);
-
-                                //foreach (var listItem in itemIds)
-                                //{
-
-                                //    dynamic fileDetails = await listItem;
-                                //    fileId = fileDetails.id;
-                                //    fileName = fileDetails.name;
-                                //    fileSize = fileDetails.size;
-                                //    createdDate = fileDetails.createdDateTime;
-                                //    createdBy = fileDetails.createdBy.user.displayName;
-                                //    lastModifiedDate = fileDetails.lastModifiedDateTime;
-                                //    lastModifiedBy = fileDetails.lastModifiedBy.user.displayName;
-
-                                //    folderListItems.Add(new Folders(fileId, fileName, fileSize, createdDate, createdBy, lastModifiedDate, lastModifiedBy));
-
-                                //}
-                            }
-                        }
+                     
                     }
                 }
 
@@ -154,6 +121,60 @@ namespace appsvc_fnc_dev_userstats
 
                ));
             }
+
+            //foreach (var group in groupData)
+            //{
+            //    groupId = group.id;
+            //    groupDisplayName = group.displayName;
+
+            //    //var groupDrives = GetDriveDataAsync(groupId, log);
+
+            //    var groups = new List<Task<dynamic>>
+            //    {
+            //        GetDriveDataAsync(groupId, log)
+            //    };
+
+            //    await Task.WhenAll(groups);
+
+            //    foreach (var driveData in groups)
+            //    {
+            //        dynamic drive = await driveData;
+
+            //        driveId = drive[0].id;
+            //        quotaRemaining = drive[0].quota.remaining;
+            //        quotaTotal = drive[0].quota.total;
+            //        quotaUsed = drive[0].quota.used;
+
+            //        var driveList = new List<Task<dynamic>> {
+            //            GetFolderListsAsync(groupId, driveId, log)
+            //        };
+
+            //        await Task.WhenAll(driveList);
+            //        log.LogInformation($"driveList:{driveList}");
+
+            //        foreach (var lists in driveList)
+            //        {
+            //            dynamic list = await lists;
+
+            //            log.LogInformation($"List:{list}");
+
+            //            //siteId = list[0].value;
+            //        }
+
+            //    }
+
+
+            //    GroupList.Add(new Group(
+            //    groupId,
+            //    groupDisplayName,
+            //    driveId,
+            //    quotaRemaining,
+            //    quotaUsed,
+            //    quotaTotal,
+            //    folderListItems
+
+            //    ));
+            //}
 
 
             //CreateContainerIfNotExists(context, "groupsitestorage", log);
@@ -195,137 +216,231 @@ namespace appsvc_fnc_dev_userstats
 
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/?$select=id,quota";
-            // log.LogInformation($"DriveURL2:{requestUri}");
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives";
+            log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
 
         private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list?select=id,name,displayName,createdDateTime,createdBy,lastModifiedDateTime,lastModifiedBy,parentReference";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?$select=id,createdDateTime,lastModifiedDateTime,contentType";
             // log.LogInformation($"Folder List 3:{requestUri}");
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
 
-        private static async Task<dynamic> GetAllFolderListItemsAsync(string groupId, string driveId, ILogger log)
-        {
+        //private static async Task<dynamic> GetAllFolderListItemsAsync(string groupId, string driveId, ILogger log)
+        //{
 
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?select=id";
-            // log.LogInformation($"LIST IDS:{requestUri}");
-            return await SendGraphRequestAsync(requestUri, "4", log);
-        }
+        //    var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?select=id";
+        //    // log.LogInformation($"LIST IDS:{requestUri}");
+        //    return await SendGraphRequestAsync(requestUri, "4", log);
+        //}
 
-        private static async Task<dynamic> GetFileDetailsAsync(string siteId, string listId, string itemId, ILogger log)
-        {
-            var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem?select=createdDateTime,id,lastModifiedDateTime,name,webUrl,size,createdBy,lastModifiedBy";
-            //log.LogInformation($"ITEMDETAILS 5:{requestUri}");
-            return await SendGraphRequestAsync(requestUri, "5", log);
-        }
+        //private static async Task<dynamic> GetFileDetailsAsync(string siteId, string listId, string itemId, ILogger log)
+        //{
+        //    var requestUri = $"https://graph.microsoft.com/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/driveItem?select=createdDateTime,id,lastModifiedDateTime,name,webUrl,size,createdBy,lastModifiedBy";
+        //    //log.LogInformation($"ITEMDETAILS 5:{requestUri}");
+        //    return await SendGraphRequestAsync(requestUri, "5", log);
+        //}
 
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
         {
-            Auth auth = new Auth();
-            var graphAPIAuth = auth.graphAuth(log);
-
-            log.LogInformation($"URI:{requestUri}");
-            var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-            var batch = new BatchRequestContent();
-            var batchRequest = new BatchRequestStep(batchId, request);
-            batch.AddBatchRequestStep(batchRequest);
-
-            BatchResponseContent batchResponse = null;
-
             int maxRetryCount = 3;
             int retryDelayInSeconds = 3000;
 
-            for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
-            {
-                batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                var responses = await batchResponse.GetResponsesAsync();
+            var batch = new BatchRequestContent();
+            BatchResponseContent batchResponse = null;
 
-                if (responses[batchId].Headers.Contains("Retry-After"))
+            Auth auth = new Auth();
+            var graphAPIAuth = auth.graphAuth(log);
+            BatchRequestStep step = new BatchRequestStep(batchId, new HttpRequestMessage(HttpMethod.Get, requestUri));
+
+            JArray valueAll;
+
+            try
+            {
+                batch.AddBatchRequestStep(step);
+
+                Dictionary<string, HttpResponseMessage> response = null;
+
+                for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
                 {
-                    log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
-                    // Sleep for the specified delay before retrying
-                    await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
-                    retryDelayInSeconds *= 2; // Exponential backoff for retry delay
+                    batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                    response = await batchResponse.GetResponsesAsync();
+
+                    if (response[batchId].Headers.Contains("Retry-After"))
+                    {
+                        log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
+                        // Sleep for the specified delay before retrying
+                        await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
+                        retryDelayInSeconds *= 2; // Exponential backoff for retry delay
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (batchResponse != null)
+                {
+                    var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+
+                    dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
+                    log.LogInformation($"{responseBody}");
+                    var nextPageLink = responseData["@odata.nextLink"];
+                    //log.LogInformation($"1{responseData}");
+
+                    JArray value = responseData["value"];
+
+                    valueAll = value;
+
+                    while (nextPageLink != null)
+                    {
+                        step.Request.RequestUri = nextPageLink;
+                        batch.AddBatchRequestStep(step);
+                        batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+
+                        if (batchResponse != null)
+                        {
+                            response = await batchResponse.GetResponsesAsync();
+                            responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+
+                            responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
+                            nextPageLink = responseData["@odata.nextLink"];
+                            //log.LogInformation($"WHILE LOOP_RESDATA:{responseData}");
+                            value = responseData["value"];
+
+                            valueAll.Merge(value);
+                        }
+                        else
+                        {
+                            nextPageLink = null;
+                        }
+                    }
+                    log.LogInformation($"VALUEALL___{valueAll}");
+                    return valueAll;
                 }
                 else
                 {
-                    break;
+                    log.LogError("Max retry count reached. Unable to proceed.");
+                    return null;
                 }
             }
-
-            if (batchResponse != null)
+            catch (Exception e)
             {
-
-                var response = await batchResponse.GetResponsesAsync();
-                var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-            
-
-                dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
-
-                var nextPageLink = responseData["@odata.nextLink"];
-
-                //log.LogInformation($"NEXTPAGE LINK:____{nextPageLink}");
-
-
-
-                if (nextPageLink != null)
-                {
-
-                    log.LogInformation($"NEXTPAGE LINK2:____{nextPageLink}");
-
-
-                    var groupsNextPageUri = nextPageLink.ToString();
-
-                    var groupsHttpRequest = new HttpRequestMessage(HttpMethod.Get, groupsNextPageUri);
-                    batch.AddBatchRequestStep(groupsHttpRequest);
-
-                    var returnResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                    var responses = await returnResponse.GetResponsesAsync();
-            
-                    
-                    //request = new HttpRequestMessage(HttpMethod.Get, nextPageUri);
-                    //batch.AddBatchRequestStep(request);
-
-
-
-
-
-
-                    //batch = new BatchRequestContent();
-                    //batchRequest = new BatchRequestStep("1", request);
-                    //batch.AddBatchRequestStep(batchRequest);
-
-                    //batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                    //var responses = await batchResponse.GetNextLinkAsync();
-
-                    log.LogInformation($"RESPONSES{responses}");
-                }
-
-
-
-
-
-                return JsonConvert.DeserializeObject(responseBody);
-            }
-            else
-            {
-                log.LogError("Max retry count reached. Unable to proceed.");
+                log.LogError($"Message: {e.Message}");
+                if (e.InnerException is not null) log.LogError($"InnerException: {e.InnerException.Message}");
+                log.LogError($"StackTrace: {e.StackTrace}");
                 return null;
             }
         }
 
+        //private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
+        //{
+        //    Auth auth = new Auth();
+        //    var graphAPIAuth = auth.graphAuth(log);
 
-        private static async Task<dynamic> HandleNextPage(string url, ILogger log)
-        {
-            log.LogInformation($"URL:--{url}");
-           
+        //    log.LogInformation($"URI:{requestUri}");
+        //    var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        //    var batch = new BatchRequestContent();
+        //    var batchRequest = new BatchRequestStep(batchId, request);
+        //    batch.AddBatchRequestStep(batchRequest);
 
-            return await SendGraphRequestAsync(url, "1", log);
-        }
+        //    BatchResponseContent batchResponse = null;
+        //    //Dictionary<string, HttpResponseMessage> response = null;
+
+        //    int maxRetryCount = 3;
+        //    int retryDelayInSeconds = 3000;
+
+        //    for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
+        //    {
+        //        batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+        //        var responses = await batchResponse.GetResponsesAsync();
+
+        //        if (responses[batchId].Headers.Contains("Retry-After"))
+        //        {
+        //            log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
+        //            // Sleep for the specified delay before retrying
+        //            await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
+        //            retryDelayInSeconds *= 2; // Exponential backoff for retry delay
+        //        }
+        //        else
+        //        {
+        //            break;
+        //        }
+        //    }
+
+        //    if (batchResponse != null)
+        //    {
+
+        //        var response = await batchResponse.GetResponsesAsync();
+        //        var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+
+
+        //        dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
+
+        //        var nextPageLink = responseData["@odata.nextLink"];
+
+        //        //log.LogInformation($"NEXTPAGE LINK:____{nextPageLink}");
+
+
+
+        //        if (nextPageLink != null)
+        //        {
+
+        //            log.LogInformation($"NEXTPAGE LINK2:____{nextPageLink}");
+                   
+
+        //            var groupsNextPageUri = nextPageLink.ToString();
+
+        //            var groupsHttpRequest = new HttpRequestMessage(HttpMethod.Get, groupsNextPageUri);
+        //            batch.AddBatchRequestStep(groupsHttpRequest);
+
+        //            var returnResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+
+
+        //            if (batchResponse != null) {
+
+        //                var responses = await returnResponse.GetResponsesAsync();
+        //                var responseBodies = await new StreamReader(responses[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+        //                log.LogInformation($"RESPONSES{responseBodies}");
+        //            }
+
+                  
+
+        //            //request = new HttpRequestMessage(HttpMethod.Get, nextPageUri);
+        //            //batch.AddBatchRequestStep(request);
+
+
+
+
+
+
+        //            //batch = new BatchRequestContent();
+        //            //batchRequest = new BatchRequestStep("1", request);
+        //            //batch.AddBatchRequestStep(batchRequest);
+
+        //            //batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+        //            //var responses = await batchResponse.GetNextLinkAsync();
+
+                   
+        //        }
+
+
+
+
+
+        //        return JsonConvert.DeserializeObject(responseBody);
+        //    }
+        //    else
+        //    {
+        //        log.LogError("Max retry count reached. Unable to proceed.");
+        //        return null;
+        //    }
+        //}
+
+
 
 
         private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
