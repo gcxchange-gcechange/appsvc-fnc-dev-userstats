@@ -55,11 +55,12 @@ namespace appsvc_fnc_dev_userstats
             string createdBy;
             string lastModifiedDate;
             string lastModifiedBy;
+            string folderCount = "";
 
 
             var groupData = await GetGroupsAsync(log);
 
-            log.LogInformation($"{groupData}");
+            //log.LogInformation($"{groupData}");
 
             foreach (var group in groupData)
             {
@@ -72,42 +73,43 @@ namespace appsvc_fnc_dev_userstats
                 };
 
                 await Task.WhenAll(groups);
-                log.LogInformation($"GROUPS:{groups}");
+                //log.LogInformation($"GROUPS:{groups}");
+
+                folderListItems = new List<Folders>();
 
                 foreach (var driveData in groups)
                 {
                     dynamic drive = await driveData;
-                    log.LogInformation($"driveData:{drive}");
+                    //log.LogInformation($"driveData:{drive}");
 
-
-                    driveId = drive[0].id;
                     quotaRemaining = drive[0].quota.remaining;
                     quotaTotal = drive[0].quota.total;
                     quotaUsed = drive[0].quota.used;
+                    siteId = drive[0].siteId;
 
-
-                    var driveList = new List<Task<dynamic>> {
+                    foreach (var item in drive)
+                    {
+                        //log.LogInformation($"driveID:{item}");
+                        driveId = item.id;
+                        var driveList = new List<Task<dynamic>> {
                         GetFolderListsAsync(groupId, driveId, log)
                     };
 
-                    await Task.WhenAll(driveList);
-                    log.LogInformation($"driveList:{driveList}");
+                        await Task.WhenAll(driveList);
 
-                    folderListItems = new List<Folders>();
-
-                    foreach (var lists in driveList)
-                    {
-                        dynamic list = await lists;
-                        log.LogInformation($"LIST:{list.Count()}");
- 
+                        foreach (var lists in driveList)
+                        {
+                            log.LogInformation($"lists:{lists}");
+                            dynamic list = await lists;
+                            log.LogInformation($"LIST:{list}");
+                            folderCount = list.Count.ToString();
 
 
-
-
-                        
-
-                     
+                        }
                     }
+
+
+                    
                 }
 
                 GroupList.Add(new Group(
@@ -117,6 +119,7 @@ namespace appsvc_fnc_dev_userstats
                     quotaRemaining,
                     quotaUsed,
                     quotaTotal,
+                    folderCount,
                     folderListItems
 
                ));
@@ -216,8 +219,8 @@ namespace appsvc_fnc_dev_userstats
 
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives";
-            log.LogInformation($"DriveURL2:{requestUri}");
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives?$filter=driveType eq 'documentLibrary'";
+            //log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
@@ -287,7 +290,7 @@ namespace appsvc_fnc_dev_userstats
                     var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
 
                     dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
-                    log.LogInformation($"{responseBody}");
+                    //log.LogInformation($"{responseBody}");
                     var nextPageLink = responseData["@odata.nextLink"];
                     //log.LogInformation($"1{responseData}");
 
@@ -318,7 +321,7 @@ namespace appsvc_fnc_dev_userstats
                             nextPageLink = null;
                         }
                     }
-                    log.LogInformation($"VALUEALL___{valueAll}");
+                   
                     return valueAll;
                 }
                 else
@@ -477,13 +480,14 @@ namespace appsvc_fnc_dev_userstats
             public string remainingStorage;
             public string usedStorage;
             public string totalStorage;
+            public string folderCount;
 
             public List<Folders> folderlist;
 
 
 
 
-            public Group(string groupId, string displayName, string driveId, string remainingStorage, string usedStorage, string totalStorage,
+            public Group(string groupId, string displayName, string driveId, string remainingStorage, string usedStorage, string totalStorage, string folderCount,
 
 
                 List<Folders> folderlist)
@@ -494,6 +498,7 @@ namespace appsvc_fnc_dev_userstats
                 this.remainingStorage = remainingStorage;
                 this.usedStorage = usedStorage;
                 this.totalStorage = totalStorage;
+                this.folderCount = folderCount;
                 this.folderlist = folderlist ?? new List<Folders>();
 
 
