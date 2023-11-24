@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,7 +34,9 @@ namespace appsvc_fnc_dev_userstats
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
 
-            var groupId = "";
+            var groupId = ""; 
+
+            var groups = new List<string>();
 
             try
             {
@@ -44,11 +47,12 @@ namespace appsvc_fnc_dev_userstats
                 //Request for the batch
                 var unified = "groupTypes/any(c:c eq 'Unified')";
                 var unifiedGroups = graphAPIAuth.Groups.Request().Filter(unified).Select("id, DisplayName").Top(20);
-                var groupDrives = graphAPIAuth.Groups[groupId].Drives.Request();
+                //var groupDrives = graphAPIAuth.Groups[groupId].Drives.Request();
 
                 //Add the request to the Batch
                 var groupsRequestId = batch.AddBatchRequestStep(unifiedGroups);
-                var drivesRequestId = batch.AddBatchRequestStep(groupDrives);
+           
+                //var drivesRequestId = batch.AddBatchRequestStep(groupDrives);
                 
 
                 //var allgroupsRequest = batch.AddBatchRequestStep(allgroups);
@@ -65,60 +69,64 @@ namespace appsvc_fnc_dev_userstats
                 //var responseBody = await new StreamReader(response[allgroupsID].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
 
                 // Now process the dependencies
-                var nextPageLink = responseBody["@odata.nextLink"];
-              
-                List<string> groupIds = new List<string>(); 
 
-                while (nextPageLink != null )
-                {
-                    unifiedGroups = nextPageLink;
-                    var nextpage = batch.AddBatchRequestStep(unifiedGroups);
-                    returnedResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                log.LogInformation($"Res:{responseBody.value }");
 
-                    if(returnedResponse != null )
+                foreach ( var item in responseBody.value ) 
+                { 
+                    //convert object to string
+                    string jsonGroupIds = JsonConvert.SerializeObject(item.id);
+                    groups.Add(jsonGroupIds);
+                   
+                }
+
+                string nextPageLink = responseBody["@odata.nextLink"];
+
+                 foreach(var id in groups)
                     {
-                        response = await returnedResponse.GetResponseByIdAsync(nextpage);
-                        responseContent = response.Content.ReadAsStringAsync().Result;
-                        responseBody = JsonConvert.DeserializeObject(responseContent);
-
-                        
-
+                        log.LogInformation($"LIST IDS:{id}");
                     }
-                }
 
-                foreach (var ids in responseBody.value)
+
+                log.LogInformation($"NEXTPGAE:{nextPageLink}");
+                log.LogInformation($"LIST:{groups.Count}");
+
+
+                while (nextPageLink != null)
                 {
-                    groupId = ids.id;
-                    log.LogInformation($"{groupId}");
+
+                    var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, nextPageLink);
+                    batch.AddBatchRequestStep(httpRequestMessage);
+                    returnedResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                    var res = await returnedResponse.GetResponsesAsync();
+                   
+
+                    
+
+
+                    log.LogInformation($"{res} returned response");
+
+                    //var nextLinkResponse = await graphAPIAuth.HttpProvider.GetAsync(new Uri(nextPageLink)); 
+
+                    //dynamic nextLinkResponseBody = JsonConvert.DeserializeObject(nextLinkResponseContent);
+
+                    // Process the next page response
+
+                    // Check if there are more pages in the next page response
+                    //nextPageLink = nextLinkResponseBody["@odata.nextLink"];
+
                 }
-
-
-
-
-
-
-
-
-
 
             }
             catch( Exception ex)
             {
-                log.LogInformation($"ERROR: {ex}");
+                log.LogInformation($"ERROR: {ex}"); 
                 return null;
             }
-
-            
-
-
 
 
             return new OkResult();
             }
-
-            
-
-            
 
 
     }
