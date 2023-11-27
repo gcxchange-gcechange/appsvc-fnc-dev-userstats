@@ -19,7 +19,7 @@ namespace appsvc_fnc_dev_userstats
 {
     public static class Batch 
     {
-        [FunctionName("BatchSiteStorage")] 
+        [FunctionName("Batch")] 
         
             public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
             {
@@ -46,7 +46,7 @@ namespace appsvc_fnc_dev_userstats
 
                 //Request for the batch
                 var unified = "groupTypes/any(c:c eq 'Unified')";
-                var unifiedGroups = graphAPIAuth.Groups.Request().Filter(unified).Select("id, DisplayName").Top(20);
+                var unifiedGroups = graphAPIAuth.Groups.Request().Filter(unified).Select("id, DisplayName").Top(40);
                 //var groupDrives = graphAPIAuth.Groups[groupId].Drives.Request();
 
                 //Add the request to the Batch
@@ -79,8 +79,10 @@ namespace appsvc_fnc_dev_userstats
                     groups.Add(jsonGroupIds);
                    
                 }
-
+                //get the nextPageLink
                 string nextPageLink = responseBody["@odata.nextLink"];
+
+                //add the group ids to the groups list
 
                  foreach(var id in groups)
                     {
@@ -92,30 +94,53 @@ namespace appsvc_fnc_dev_userstats
                 log.LogInformation($"LIST:{groups.Count}");
 
 
-                while (nextPageLink != null)
+
+                if (nextPageLink != null)
                 {
 
                     var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, nextPageLink);
                     batch.AddBatchRequestStep(httpRequestMessage);
-                    returnedResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                    var res = await returnedResponse.GetResponsesAsync();
-                   
+                }
+                    var batchNxPgResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
+                    var res = await batchNxPgResponse.GetResponsesAsync();
+                
+                    var groupsNP = "";
 
-                    
+                foreach (var resCont in res)
+                {
+
+                    if (resCont.Value.IsSuccessStatusCode)
+                    {
+                        string toJson = await new StreamReader(resCont.Value.Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+
+                        if (resCont.Value.Headers.TryGetValues("@odataNextLink", out var nextLinkValues))
+                        {
+                            nextPageLink = nextLinkValues.FirstOrDefault();
+                            log.LogInformation($"LINK:{nextPageLink}");
+                        }
+
+                        
+                    var result = JsonConvert.DeserializeObject(toJson);
+
+                    log.Loginformation()
 
 
-                    log.LogInformation($"{res} returned response");
 
-                    //var nextLinkResponse = await graphAPIAuth.HttpProvider.GetAsync(new Uri(nextPageLink)); 
 
-                    //dynamic nextLinkResponseBody = JsonConvert.DeserializeObject(nextLinkResponseContent);
 
-                    // Process the next page response
+                        groupsNP += result;
 
-                    // Check if there are more pages in the next page response
-                    //nextPageLink = nextLinkResponseBody["@odata.nextLink"];
+
+
+                    }
 
                 }
+
+
+
+                log.LogInformation($"NP{groupsNP }");
+
+                
 
             }
             catch( Exception ex)
