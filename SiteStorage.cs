@@ -49,13 +49,13 @@ namespace appsvc_fnc_dev_userstats
             string siteId;
             string listId;
             string itemId;
-            string fileId;
-            string fileName;
-            string fileSize;
-            string createdDate;
-            string createdBy;
-            string lastModifiedDateTime;
-            string lastModifiedBy;
+            //string fileId;
+            //string fileName;
+            //string fileSize;
+            //string createdDate;
+            //string createdBy;
+            //string lastModifiedDateTime;
+            //string lastModifiedBy;
             string folderCount = "";
 
 
@@ -74,8 +74,7 @@ namespace appsvc_fnc_dev_userstats
                 };
 
                 await Task.WhenAll(groups);
-                log.LogInformation($"GROUPS:{groups}");
-
+            
                 drivesList = new List<Drives>();
                 folderListItems = new List<Folders>();
 
@@ -89,7 +88,7 @@ namespace appsvc_fnc_dev_userstats
                     quotaUsed = drive[0].quota.used;
                     //siteId = drive[0].siteId;
                      
-                    foreach (var item in drive)
+                    foreach (var item in drive) 
                     {
                         
                         driveId = item.id;
@@ -97,31 +96,41 @@ namespace appsvc_fnc_dev_userstats
 
                         foreach(var drivesIds in drivesList)
                         {
-                            log.LogInformation($"IDS:{drivesIds.driveId}");
+                            //log.LogInformation($"IDS:{drivesIds.driveId}");
                             
                             var driveListItems = new List<Task<dynamic>> 
-                            {
+                            { 
                                 GetFolderListsAsync(groupId, drivesIds.driveId, log)
                             };
                             await Task.WhenAll(driveListItems);
+                          
 
-                            foreach(var driveItem in driveListItems) 
+                            foreach (var driveItem in driveListItems) 
                             {
-                               dynamic itemData = await driveItem;
+                                if (driveItem != null)
+                                {
+                                    JArray arrayData = await driveItem;
 
-                                log.LogInformation($"{itemData.id}");
-                                //fileId = itemData.id;
-                                //fileName = itemData.contentType.name;
-                                //createdDate = itemData.createdDateTime;
-                                //createdBy = itemData.createdBy.displayName;
-                                //lastModifiedDateTime = itemData.lastModifiedDateTime;
-                                //lastModifiedBy = itemData.lastModifiedBy.displayName;
+                                    foreach (JObject itemData in arrayData)
+                                    {
 
+                                        var fileId = (string)itemData["id"];
+                                        var fileName = itemData["contentType"]["name"].ToString();
+                                        var createdDate = itemData["createdDateTime"].ToString();
+                                        var lastModifiedDateTime = (string)itemData["lastModifiedDateTime"];
+
+
+
+                                        folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
+                                    }
+                                } else
+                                {
+                                    return null;
+                                }
+                                
 
                                
-                                //folderListItems.Add(new Folders(fileId, fileName, createdDate, createdBy, lastModifiedDateTime, lastModifiedBy));*/
-                                
-                                log.LogInformation($"DriveITEM:{itemData}");
+
                             }
                              
                         } 
@@ -532,19 +541,19 @@ namespace appsvc_fnc_dev_userstats
             public string fileName;
             //public string fileSize;
             public string createdDate;
-            public string createdBy;
+            //public string createdBy;
             public string lastModifiedDateTime;
-            public string lastModifiedBy;
+            //public string lastModifiedBy;
 
-            public Folders(string fileId, string fileName, string createdDate, string createdBy, string lastModifiedDateTime, string lastModifiedBy)
+            public Folders(string fileId, string fileName, string createdDate, string lastModifiedDateTime)
             {
                 this.fileId = fileId;
                 this.fileName = fileName;
                 //this.fileSize = fileSize;
                 this.createdDate = createdDate;
-                this.createdBy = createdBy;
+                //this.createdBy = createdBy;
                 this.lastModifiedDateTime = lastModifiedDateTime;
-                this.lastModifiedBy = lastModifiedBy;
+                //this.lastModifiedBy = lastModifiedBy;
             }
         }
 
