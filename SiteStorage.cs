@@ -42,13 +42,13 @@ namespace appsvc_fnc_dev_userstats
 
             string groupId;
             string groupDisplayName;
-            string driveId = "";
+            string driveId;
             string quotaRemaining = "";
             string quotaTotal = "";
             string quotaUsed = "";
-            string siteId;
-            string listId;
-            string itemId;
+            //string siteId;
+            //string listId;
+            //string itemId;
             string fileId;
             string fileName;
             //string fileSize;
@@ -74,98 +74,56 @@ namespace appsvc_fnc_dev_userstats
 
                 await Task.WhenAll(groups);
             
-                drivesList = new List<Drives>();
-             
-
                 foreach (var driveData in groups)
                 {
                     dynamic drive = await driveData;
-                    //log.LogInformation($"driveData:{drive}");
                  
                     quotaRemaining = drive[0].quota.remaining;
                     quotaTotal = drive[0].quota.total;
                     quotaUsed = drive[0].quota.used;
-                    //siteId = drive[0].siteId;
 
+
+                    drivesList = new List<Drives>();
 
                     foreach (var item in drive) 
                     {
                         
                         driveId = item.id;
 
-                
-                        var drives = new List<Task<dynamic>>
+                        var driveListItems = new List<Task<dynamic>>
                         {
                              GetFolderListsAsync(groupId, driveId, log)
                         };
 
-                        await Task.WhenAll(drives);
-
+                        await Task.WhenAll(driveListItems);
 
                         folderListItems = new List<Folders>();
 
-                        foreach (var driveItems in drives)
+                        foreach (var listItemsTask in driveListItems) 
                         {
-                            dynamic driveListItems = await driveItems;
-                            //log.LogInformation($"driveItems:, { driveItems}");
+                            dynamic listItems = await listItemsTask;
 
-                            if (driveListItems != null)
-                            { 
-                                foreach (var driveItem in driveListItems)
+                            if (listItems != null ) {
+
+                                foreach (var listItem in listItems)
                                 {
-                                    fileId = driveItem.id;
-                                    log.LogInformation($"id, {fileId}");
-                                    fileName = driveItem.name;
+                            
+                                    fileId = listItem.id;
+                                    fileName = listItem.contentType.name;
 
+                                    if (listItem != null )
+                                    {
 
-                                   folderListItems.Add(new Folders(fileId, fileName));
+                                    folderListItems.Add(new Folders(fileId, fileName));
+
+                                    }
+
                                 }
                             }
-                             
-
-                            //var driveListItems = new List<Task<dynamic>> 
-                            //{ 
-                            //    GetFolderListsAsync(groupId, drivesIds.driveId, log)
-                            //};
-                            //await Task.WhenAll(driveListItems) ;
-
-
-                            //folderListItems = new List<Folders>();
-
-                            //foreach (var driveItem in driveListItems)
-                            //{
-                            //    log.LogInformation($"driveItem", driveItem);
-                            //    if (driveItem != null)
-                            //    {
-                            //        JArray arrayData = await driveItem;
-
-                            //        foreach (JObject itemData in arrayData)
-                            //        {
-
-                            //            var fileId = (string)itemData["id"];
-                            //            var fileName = itemData["contentType"]["name"].ToString();
-                            //            var createdDate = itemData["createdDateTime"].ToString();
-                            //            var lastModifiedDateTime = (string)itemData["lastModifiedDateTime"];
-
-
-
-                            //            folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
-                            //        }
-                            //    }
-                            //    else
-                            //    {
-                            //        return null;
-                            //    }
-
-                            //}
-
-                        drivesList.Add(new Drives(driveId));
                         }
-
-
+                        drivesList.Add(new Drives(driveId, folderListItems));
                     }
-
-
+                   
 
                 }
 
@@ -175,65 +133,12 @@ namespace appsvc_fnc_dev_userstats
                     quotaRemaining,
                     quotaUsed,
                     quotaTotal,
-                    //folderListItems,
                     drivesList
+                    
 
                ));
             }
 
-            //foreach (var group in groupData)
-            //{
-            //    groupId = group.id;
-            //    groupDisplayName = group.displayName;
-
-            //    //var groupDrives = GetDriveDataAsync(groupId, log);
-
-            //    var groups = new List<Task<dynamic>>
-            //    {
-            //        GetDriveDataAsync(groupId, log)
-            //    };
-
-            //    await Task.WhenAll(groups);
-
-            //    foreach (var driveData in groups)
-            //    {
-            //        dynamic drive = await driveData;
-
-            //        driveId = drive[0].id;
-            //        quotaRemaining = drive[0].quota.remaining;
-            //        quotaTotal = drive[0].quota.total;
-            //        quotaUsed = drive[0].quota.used;
-
-            //        var driveList = new List<Task<dynamic>> {
-            //            GetFolderListsAsync(groupId, driveId, log)
-            //        };
-
-            //        await Task.WhenAll(driveList);
-            //        log.LogInformation($"driveList:{driveList}");
-
-            //        foreach (var lists in driveList)
-            //        {
-            //            dynamic list = await lists;
-
-            //            log.LogInformation($"List:{list}");
-
-            //            //siteId = list[0].value;
-            //        }
-
-            //    }
-
-
-            //    GroupList.Add(new Group(
-            //    groupId,
-            //    groupDisplayName,
-            //    driveId,
-            //    quotaRemaining,
-            //    quotaUsed,
-            //    quotaTotal,
-            //    folderListItems
-
-            //    ));
-            //}
 
 
             //CreateContainerIfNotExists(context, "groupsitestorage", log);
@@ -285,6 +190,7 @@ namespace appsvc_fnc_dev_userstats
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?$select=id,createdDateTime,lastModifiedDateTime,contentType";
             log.LogInformation($"Folder List 3:{requestUri}");
+            
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
 
@@ -544,7 +450,8 @@ namespace appsvc_fnc_dev_userstats
 
 
 
-            public Group(string groupId, string displayName,  string remainingStorage, string usedStorage, string totalStorage,  List<Drives> drivesList) //List<Folders> folderlist)
+
+            public Group(string groupId, string displayName,  string remainingStorage, string usedStorage, string totalStorage,  List<Drives> drivesList ) //List<Folders> folderlist)
             {
                 this.groupId = groupId;
                 this.displayName = displayName;
@@ -560,21 +467,13 @@ namespace appsvc_fnc_dev_userstats
         {
             public string fileId;
             public string fileName;
-            //public string fileSize;
-           // public string createdDate;
-            //public string createdBy;
-            //public string lastModifiedDateTime;
-            //public string lastModifiedBy;
+
 
             public Folders(string fileId, string fileName  )
             {
                 this.fileId = fileId;
                 this.fileName = fileName;
-                //this.fileSize = fileSize;
-               // this.createdDate = createdDate;
-                //this.createdBy = createdBy;
-                //this.lastModifiedDateTime = lastModifiedDateTime;
-                //this.lastModifiedBy = lastModifiedBy;
+ 
             }
         }
 
@@ -583,17 +482,26 @@ namespace appsvc_fnc_dev_userstats
         public class Drives
         {
             public string driveId;
-            public List<Folder> folders;
-               
+            public List <Folders> folderListItems;
+ 
 
-            public Drives(string driveId)
+            //public Drives(string driveId, List<Folder> folders)
+            //{
+            //    this.driveId = driveId;
+            //    this.folders = new List<Folder>();  
+
+            //}
+
+            public Drives(string driveId, List<Folders> folderListItems)
             {
                 this.driveId = driveId;
-                this.folders = new List<Folder>();  
+                this.folderListItems = folderListItems;
 
+               
             }
-           
         }
+
+        
 
     }
 }
