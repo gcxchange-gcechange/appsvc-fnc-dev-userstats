@@ -24,7 +24,7 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("SiteStorage")]
 
-        public static async Task Run([TimerTrigger("0 0 3 * * 5")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+        public static async Task Run([TimerTrigger("0 0 3 * * 0")] TimerInfo myTimer, ILogger log, ExecutionContext context)
         //public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
 
         {
