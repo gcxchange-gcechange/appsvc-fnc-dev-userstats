@@ -181,7 +181,7 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=999";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=500";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
@@ -250,7 +250,7 @@ namespace appsvc_fnc_dev_userstats
                     log.LogInformation($"{responseBody}");
                     var nextPageLink = responseData["@odata.nextLink"];
                     //log.LogInformation($"1{responseData}");
-
+                    log.LogInformation($"{nextPageLink}");
                     JArray value = responseData["value"];
 
                     valueAll = value;
@@ -268,7 +268,7 @@ namespace appsvc_fnc_dev_userstats
 
                             responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
                             nextPageLink = responseData["@odata.nextLink"];
-                            //log.LogInformation($"WHILE LOOP_RESDATA:{responseData}");
+                            log.LogInformation($"WHILE LOOP_RESDATA:{responseData}");
                             value = responseData["value"];
 
                             valueAll.Merge(value);
