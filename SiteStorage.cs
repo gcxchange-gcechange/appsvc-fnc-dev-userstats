@@ -101,22 +101,32 @@ namespace appsvc_fnc_dev_userstats
 
                             if (listItems != null ) {
 
-                                foreach (var listItem in listItems)
+                                try
                                 {
-                                    log.LogInformation($"listItem:{listItem }");
-                                    fileId = listItem.id;
-                                    fileName = listItem.contentType.name;
-                                    createdDate = listItem.createdDateTime;
-                                    lastModifiedDateTime = listItem.lastModifiedDateTime;
-;
-                                    if (listItem != null )
+                                    foreach (var listItem in listItems)
                                     {
+                                        log.LogInformation($"listItem:{listItem}");
+                                        fileId = listItem.id;
+                                        fileName = listItem.contentType.name;
+                                        createdDate = listItem.createdDateTime;
+                                        lastModifiedDateTime = listItem.lastModifiedDateTime;
 
-                                    folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
+                                        if (listItem != null)
+                                        {
+
+                                            folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
+
+                                        }
 
                                     }
-
                                 }
+                                catch(Exception ex)
+                                {
+                                    log.LogError($"Error:{ ex.Message}");
+                                    log.LogError($"Stack Trace:{ex.StackTrace}");
+                                }
+
+                               
                             }
                         }
                         drivesList.Add(new Drives(driveId, driveName, driveType, folderListItems));
@@ -237,7 +247,7 @@ namespace appsvc_fnc_dev_userstats
                     var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
 
                     dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
-                    //log.LogInformation($"{responseBody}");
+                    log.LogInformation($"{responseBody}");
                     var nextPageLink = responseData["@odata.nextLink"];
                     //log.LogInformation($"1{responseData}");
 
