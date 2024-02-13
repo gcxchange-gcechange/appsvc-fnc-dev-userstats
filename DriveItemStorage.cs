@@ -17,6 +17,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Microsoft.Graph;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -62,6 +63,7 @@ namespace appsvc_fnc_dev_userstats
 
             getGroupDetails(contents, log );
 
+
             return new OkObjectResult(contents);
 
         }
@@ -85,9 +87,13 @@ namespace appsvc_fnc_dev_userstats
 
             List<Group> grouplist = new List<Group>();
 
-            var unified = new List<dynamic>();
+            List<DriveQuota> driveQuotaData = new List<DriveQuota>();
+            List<Drives> drivesList = new List<Drives>();
+            List<Folders> folderListItems = new List<Folders>();
 
+            var unified = new List<string>();
 
+            //filter out unified group
             foreach (var groupItem in obj)
             {
 
@@ -95,53 +101,79 @@ namespace appsvc_fnc_dev_userstats
                 if (groupTypes.Contains("Unified") )
                 {
                     groupId = groupItem.groupId;
-                    displayName = groupItem.displayName;
-                    grouplist.Add(new Group(groupId, displayName));
-                    //unified.Add(groupItem);
+
+                    unified.Add(groupId);
                 } 
 
             }
 
+            // get the drive for each group
 
-            foreach(var group in grouplist)
+            foreach(var group in unified)
             {
                 var groupDrives = new List<Task<dynamic>>
                 {
-                    GetDriveDataAsync(group.groupId, log)
+                    GetDriveDataAsync(group, log)
                 };
 
                 await Task.WhenAll(groupDrives);
+
+                driveQuotaData = new List<DriveQuota>();
 
 
                 foreach (var groupDrive in groupDrives)
                 {
                     dynamic drive = await groupDrive;
+
+                    log.LogInformation($"DriveID{drive}");
+
                     driveId = drive.id;
+                    displayName= drive.owner.group.displayName;
                     quotaRemaining = drive.quota.remaining;
                     quotaUsed = drive.quota.used; 
                     quotaTotal = drive.quota.total;
+                  
 
-                    log.LogInformation($"DriveID{driveId}");
+                    driveQuotaData.Add(new DriveQuota(quotaUsed,quotaRemaining, quotaTotal));
+
+                    //drivesList.Add(new Drives(driveId));
+
+                    //var driveIds = new List<Task<dynamic>>
+                    //{
+                    //    GetDriveItemListsAsync(group.groupId, driveId, log)
+                    //};
+
+                    //await Task.WhenAll(driveIds);
+
                 }
-            }
+            grouplist.Add(new Group(groupId, displayName, driveQuotaData));
 
-            //foreach (var group in unified)
-            //{
-            //    log.LogInformation($"GROUP:{group}");
-            //    groupId= group.groupId;
-            //    displayName = group.displayName;
-            //}
-            //    grouplist.Add(new Group(groupId, displayName));
-           
+            }
+            
+
+            
+
+
+
+
+            string jsonFile = JsonConvert.SerializeObject( grouplist, Formatting.Indented);
+            log.LogInformation($"JSON: {jsonFile}");
 
         }
 
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/?$select=id,quota";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drive/?$select=id,owner,quota";
             // log.LogInformation($"DriveURL2:{requestUri}");
 
             return await SendGraphRequestAsync(requestUri, "1", log);
+        }
+
+        private static async Task<dynamic> GetDriveItemListsAsync(string groupId, string driveId, ILogger log)
+        {
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list?select=id,name,displayName,createdDateTime,createdBy,lastModifiedDateTime,lastModifiedBy,parentReference";
+             log.LogInformation($"Folder List 3:{requestUri}");
+            return await SendGraphRequestAsync(requestUri, "2", log);
         }
 
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
@@ -208,19 +240,41 @@ namespace appsvc_fnc_dev_userstats
         {
             public string groupId;
             public string displayName;
+            public List<DriveQuota> driveQuotaData;
+          
 
-            public Group (string groupId, string displayName)
+
+            public Group(string groupId, string displayName, List<DriveQuota> driveQuotaData)
             {
                 this.groupId = groupId;
                 this.displayName = displayName;
-            }   
+                this.driveQuotaData = driveQuotaData;
+            }
         }
+        public class DriveQuota
+        {
+            public string quotaUsed { get; set; }
+            public string quotaRemaining { get; set; }
+            public string quotaTotal { get; set; }
+
+            public DriveQuota(string quotaUsed, string quotaRemaining, string quotaTotal)
+            {
+                this.quotaUsed = quotaUsed;
+                this.quotaRemaining = quotaRemaining;
+                this.quotaTotal = quotaTotal;
+            }
+            public override string ToString()
+            {
+                return this.quotaUsed;
+            }
+        }
+       
         public class Folders
         {
             public string fileId;
             public string fileName;
-            public string createdDate { get; set; }
-            public string lasModifiedDate { get; set; }
+            public string createdDate;
+            public string lastModifiedDate;
 
 
             public Folders(string fileId, string fileName, string createdDate, string lastModifiedDate)
@@ -228,7 +282,7 @@ namespace appsvc_fnc_dev_userstats
                 this.fileId = fileId;
                 this.fileName = fileName;
                 this.createdDate = createdDate;
-                this.lasModifiedDate = lastModifiedDate;
+                this.lastModifiedDate = lastModifiedDate;
 
             }
         }
@@ -252,16 +306,8 @@ namespace appsvc_fnc_dev_userstats
             }
         }
 
-
-
-
-
-
-
-
-
-
-
+    
+    }
 
 
 
@@ -269,4 +315,4 @@ namespace appsvc_fnc_dev_userstats
     }
 
 
-}
+
