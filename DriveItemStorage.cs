@@ -61,14 +61,14 @@ namespace appsvc_fnc_dev_userstats
             //download the file to Text
             string contents = blob.DownloadTextAsync().Result;
 
-            getGroupDetails(contents, log );
+            getGroupDetails(contents, log, context );
 
 
             return new OkObjectResult(contents);
 
         }
 
-        public static async void getGroupDetails(string contents, ILogger log)
+        public static async void getGroupDetails(string contents, ILogger log, ExecutionContext context)
         {
             var obj = JsonConvert.DeserializeObject<dynamic>(contents);
 
@@ -172,16 +172,16 @@ namespace appsvc_fnc_dev_userstats
 
 
 
-            //CreateContainerIfNotExists(context, "groupsitestorage", log);
+            CreateContainerIfNotExists(context, "groupsitestorage", log);
 
-            //CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            //CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            //CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
 
-            //string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
-            //log.LogInformation($"File {FileTitle}");
+            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
+            log.LogInformation($"File {FileTitle}");
 
-            //CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
 
 
