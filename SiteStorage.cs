@@ -24,8 +24,8 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("SiteStorage")]
 
-        public static async Task Run([TimerTrigger("0 0 3 * * 0")] TimerInfo myTimer, ILogger log, ExecutionContext context)
-        //public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
+        public static async Task Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+       // public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
 
         {
             IConfiguration config = new ConfigurationBuilder()
@@ -116,7 +116,7 @@ namespace appsvc_fnc_dev_userstats
 
                                             folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
 
-                                        }
+                                        } 
 
                                     }
                                 }
@@ -174,14 +174,14 @@ namespace appsvc_fnc_dev_userstats
 
             await blob.SetPropertiesAsync();
 
-            //return new OkResult();
+            // return new OkResult();
 
         }
 
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
         {
             var unified = "groupTypes/any(c:c eq 'Unified')";
-            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=500";
+            var requestUri = $"https://graph.microsoft.com/v1.0/groups?$filter={unified}&$select=id,displayName&$top=20";
 
             return await SendGraphRequestAsync(requestUri, "1", log);
         }
