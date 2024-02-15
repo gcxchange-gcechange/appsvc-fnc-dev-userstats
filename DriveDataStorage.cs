@@ -26,7 +26,7 @@ namespace appsvc_fnc_dev_userstats
         [FunctionName("getDriveData")]
 
         public static async Task<IActionResult> Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer,  
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ExecutionContext context, ILogger log)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req, ExecutionContext context, ILogger log)
         // public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] 
         //HttpRequest req, ExecutionContext context, ILogger log)
 
@@ -181,14 +181,14 @@ namespace appsvc_fnc_dev_userstats
             CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
 
             string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
-            log.LogInformation($"File {FileTitle}");
+            log.LogInformation($"DriveDataStorage - File: {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
 
 
             string jsonFile = JsonConvert.SerializeObject( grouplist, Formatting.Indented);
-            log.LogInformation($"JSON: {jsonFile}");
+            //log.LogInformation($"JSON: {jsonFile}");
 
         }
 
