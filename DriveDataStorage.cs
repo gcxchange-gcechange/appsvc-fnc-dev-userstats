@@ -26,7 +26,7 @@ namespace appsvc_fnc_dev_userstats
         [FunctionName("getDriveData")]
 
         public static async Task<IActionResult> Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer,  
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req, ExecutionContext context, ILogger log)
+            HttpRequest req, ExecutionContext context, ILogger log)
         // public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] 
         //HttpRequest req, ExecutionContext context, ILogger log)
 
