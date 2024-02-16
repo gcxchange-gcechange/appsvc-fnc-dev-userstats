@@ -148,21 +148,32 @@ namespace appsvc_fnc_dev_userstats
                         await Task.WhenAll(driveIds);
 
                         folderListItems = new List<Folders>();
-
-                        foreach (var driveItems in driveIds)
+                        try
                         {
+
+                            foreach (var driveItems in driveIds)
+                            {
                             dynamic driveItem = await driveItems;
 
-                            foreach(var item in driveItem.value)
-                            {
-                                log.LogInformation($"ITEM:{item}");
-                                fileId = item.id;
-                                fileName = item.webUrl;
-                                createdDate = item.createdDateTime;
-                                lastModifiedDateTime = item.lastModifiedDateTime;  
-                                folderListItems.Add(new Folders( fileId, fileName, createdDate, lastModifiedDateTime));
-                            }
                            
+                                foreach (var item in driveItem.value)
+                                {
+                                    log.LogInformation($"ITEM:{item}");
+                                    fileId = item.id;
+                                    fileName = item.webUrl;
+                                    createdDate = item.createdDateTime;
+                                    lastModifiedDateTime = item.lastModifiedDateTime;
+                                    folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
+                                }
+                            }
+
+                        }
+                          catch (Exception e)
+                            {
+                            log.LogError($"Message: {e.Message}");
+                            if (e.InnerException is not null) log.LogError($"InnerException: {e.InnerException.Message}");
+                            log.LogError($"StackTrace: {e.StackTrace}");
+
                         }
 
                         driveItemsData.Add(new DriveData(driveId, driveName, driveType, quotaUsed, quotaRemaining, quotaTotal, folderListItems));
@@ -189,13 +200,24 @@ namespace appsvc_fnc_dev_userstats
 
 
             string jsonFile = JsonConvert.SerializeObject( grouplist, Formatting.Indented);
-            //log.LogInformation($"JSON: {jsonFile}");
+            log.LogInformation($"JSON: {jsonFile}");
 
             blob.Properties.ContentType = "application/json";
 
             using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
             {
+                try
+                {
                 await blob.UploadFromStreamAsync(ms);
+
+                }
+                catch (Exception e)
+                {
+                    log.LogError($"Message: {e.Message}");
+                    if (e.InnerException is not null) log.LogError($"InnerException: {e.InnerException.Message}");
+                    log.LogError($"StackTrace: {e.StackTrace}");
+
+                }
             }
 
             await blob.SetPropertiesAsync();
