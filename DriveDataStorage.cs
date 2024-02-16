@@ -25,9 +25,9 @@ namespace appsvc_fnc_dev_userstats
     {
         [FunctionName("getDriveData")]
 
-        public static async Task<IActionResult> Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer,  
-            HttpRequest req, ExecutionContext context, ILogger log)
-        // public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] 
+        public static async Task Run([TimerTrigger("05 12 * * 5")] TimerInfo myTimer,
+           ExecutionContext context, ILogger log)
+        //public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)]
         //HttpRequest req, ExecutionContext context, ILogger log)
 
         {
@@ -36,13 +36,13 @@ namespace appsvc_fnc_dev_userstats
             string containerName = "groupstats";
             log.LogInformation($"CN: {containerName}");
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            containerName = containerName ?? data.ContainerName;
+            //string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            //dynamic data = JsonConvert.DeserializeObject(requestBody);
+           // containerName = containerName ?? data.ContainerName;
 
 
             string fileName = DateTime.Now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-          
+            log.LogInformation($"FILENAME{fileName}");
 
             var config = new ConfigurationBuilder()
                 .SetBasePath(context.FunctionAppDirectory)
@@ -61,12 +61,13 @@ namespace appsvc_fnc_dev_userstats
             CloudBlockBlob blob = container.GetBlockBlobReference($"{fileName}");
             log.LogInformation($"Blob:{blob}");
             //download the file to Text
-            string contents = blob.DownloadTextAsync().Result;
+            string contents = await blob.DownloadTextAsync();
+            log.LogInformation(contents);
+            
+             getGroupDetails(contents, log, context);
 
-            getGroupDetails(contents, log, context );
 
-
-            return new OkObjectResult(contents);
+           // return new OkObjectResult(contents);
 
         }
 
@@ -190,33 +191,18 @@ namespace appsvc_fnc_dev_userstats
             string jsonFile = JsonConvert.SerializeObject( grouplist, Formatting.Indented);
             //log.LogInformation($"JSON: {jsonFile}");
 
-        }
+            blob.Properties.ContentType = "application/json";
 
-        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
-        {
-            var config = new ConfigurationBuilder()
-                            .SetBasePath(executionContext.FunctionAppDirectory)
-                            .AddJsonFile("local.settings.json", true, true)
-                            .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
-
-            return storageAccount;
-
-        }
-
-        private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
-        {
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            string[] containers = new string[] { containerName };
-            log.LogInformation("Create container");
-            foreach (var item in containers)
+            using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
             {
-                log.LogInformation($"ITEM:{item}");
-                CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
-                await blobContainer.CreateIfNotExistsAsync();
+                await blob.UploadFromStreamAsync(ms);
             }
+
+            await blob.SetPropertiesAsync();
+
         }
+
+      
 
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
@@ -294,6 +280,34 @@ namespace appsvc_fnc_dev_userstats
             }
           
         }
+
+        private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
+        {
+            CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            string[] containers = new string[] { containerName };
+            log.LogInformation("Create container");
+            foreach (var item in containers)
+            {
+                log.LogInformation($"ITEM:{item}");
+                CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
+                await blobContainer.CreateIfNotExistsAsync();
+            }
+        }
+
+        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
+        {
+            var config = new ConfigurationBuilder()
+                            .SetBasePath(executionContext.FunctionAppDirectory)
+                            .AddJsonFile("local.settings.json", true, true)
+                            .AddEnvironmentVariables().Build();
+            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
+
+            return storageAccount;
+
+        }
+
+       
 
 
         public class Group
