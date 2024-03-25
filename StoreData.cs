@@ -47,11 +47,7 @@ namespace appsvc_fnc_dev_userstats
             string responseMessage = ResultUsersStore
                 ? "Work as it should"
                 : $"Something went wrong. Check the logs";
-
-            //return new OkObjectResult(responseMessage);
         }
-
-
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
         {
@@ -78,6 +74,7 @@ namespace appsvc_fnc_dev_userstats
                 {
                     Id = user.Id,
                     creationDate = user.creationDate,
+                    mail = user.mail
                 });
             }
 
