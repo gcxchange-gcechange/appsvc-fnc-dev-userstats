@@ -28,7 +28,7 @@ namespace appsvc_fnc_dev_userstats
             IGraphServiceUsersCollectionPage usersPage = await graphAPIAuth
                 .Users
                 .Request()
-                .Select("id,createdDateTime")
+                .Select("id,createdDateTime,mail")
                 .GetAsync();
 
             // Add the first page of results to the user list
@@ -49,7 +49,8 @@ namespace appsvc_fnc_dev_userstats
                     userList.Add(new usersData()
                     {
                         Id = user.Id,
-                        creationDate = user.CreatedDateTime
+                        creationDate = user.CreatedDateTime,
+                        mail = user.Mail
                     });
                 }
             }

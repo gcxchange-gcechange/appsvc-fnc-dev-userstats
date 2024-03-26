@@ -10,6 +10,7 @@ namespace appsvc_fnc_dev_userstats
     {
         public string Id { get; set; }
         public System.DateTimeOffset? creationDate { get; set; }
+        public string mail { get; set; }
     }
     public class groupsData
     {
