@@ -1,17 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace appsvc_fnc_dev_userstats
 {
     public class usersData
     {
         public string Id { get; set; }
-        public System.DateTimeOffset? creationDate { get; set; }
+        public DateTimeOffset? creationDate { get; set; }
         public string mail { get; set; }
     }
+
     public class groupsData
     {
         public string displayName;
@@ -22,15 +20,28 @@ namespace appsvc_fnc_dev_userstats
         public IEnumerable<string> groupType;
         public List<string> userlist;
     }
+
     public class activeuserData
     {
         public string userid;
         public string UserDisplayName;
     }
+
     public class countactiveuserData
     {
         public string name;
         public int countActiveusers;
+        public List<ActiveUserCountByDomain> countByDomain;
     }
 
+    public class ActiveUserCountByDomain
+    {
+        public string domain;
+        public int count;
+
+        public ActiveUserCountByDomain(string domainName, int userCount) {
+            domain = domainName;
+            count = userCount;
+        }
+    }
 }
