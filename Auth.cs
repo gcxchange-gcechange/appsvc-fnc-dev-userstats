@@ -4,9 +4,7 @@ using Azure.Security.KeyVault.Secrets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Microsoft.Identity.Client;
 using System;
-using System.Net.Http.Headers;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -15,12 +13,10 @@ namespace appsvc_fnc_dev_userstats
         public GraphServiceClient graphAuth(ILogger log)
         {
             IConfiguration config = new ConfigurationBuilder()
-
            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
            .AddEnvironmentVariables()
            .Build();
 
-            log.LogInformation("C# HTTP trigger function processed a request.");
             var scopes = new string[] { "https://graph.microsoft.com/.default" };
             var keyVaultUrl = config["keyVaultUrl"];
             var keyname = config["keyname"];
