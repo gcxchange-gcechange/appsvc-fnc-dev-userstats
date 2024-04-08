@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
+using System;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -10,6 +11,8 @@ namespace appsvc_fnc_dev_userstats
     {
         public async Task<List<usersData>> UserStatsDataAsync (ILogger log)
         {
+            log.LogInformation("UserStatsDataAsync received a request.");
+
             IConfiguration config = new ConfigurationBuilder()
 
            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -45,7 +48,6 @@ namespace appsvc_fnc_dev_userstats
             {
                 if (exceptionUsersArray.Contains(user.Id) == false)
                 {
-                    log.LogInformation(user.Id);
                     userList.Add(new usersData()
                     {
                         Id = user.Id,
@@ -54,6 +56,9 @@ namespace appsvc_fnc_dev_userstats
                     });
                 }
             }
+
+            log.LogInformation("UserStatsDataAsync processed a request.");
+
             return userList;
         }
     }

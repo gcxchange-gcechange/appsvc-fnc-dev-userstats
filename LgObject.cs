@@ -44,4 +44,26 @@ namespace appsvc_fnc_dev_userstats
             count = userCount;
         }
     }
+
+    public class SingleGroup
+    {
+        public string displayName;
+        public int countMember;
+        public string groupId;
+        public string creationDate;
+        public string description;
+        public IEnumerable<string> groupType;
+        public List<String> userlist;
+
+        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType, List<String> userlist)
+        {
+            this.displayName = displayName;
+            this.countMember = countMember;
+            this.groupId = groupId;
+            this.creationDate = creationDate;
+            this.description = description;
+            this.groupType = groupType;
+            this.userlist = userlist;
+        }
+    }
 }
