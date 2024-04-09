@@ -17,6 +17,8 @@ namespace appsvc_fnc_dev_userstats
         [FunctionName("GroupStats")]
         public async Task<List<SingleGroup>> GroupStatsDataAsync(ILogger log)
         {
+            log.LogInformation("GroupStatsDataAsync received a request.");
+
             IConfiguration config = new ConfigurationBuilder()
 
           .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -43,7 +45,6 @@ namespace appsvc_fnc_dev_userstats
                     {
                         var users = await graphAPIAuth.Groups[group.Id].Members.Request().GetAsync();
                         var total = 0;
-                        string [] userlist = null;
                         List<string> userListid = new List<string>();
 
                         foreach (var user in users)
@@ -58,35 +59,14 @@ namespace appsvc_fnc_dev_userstats
                         }
                         while (users.NextPageRequest != null && (users = await users.NextPageRequest.GetAsync()).Count > 0);
                         GroupList.Add(new SingleGroup(group.DisplayName, total, group.Id, Convert.ToString(group.CreatedDateTime), group.Description, group.GroupTypes, userListid));
-
                     }
                 }
             }
             while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
 
+            log.LogInformation("GroupStatsDataAsync processed a request.");
+
             return GroupList;
         }
     }
-    public class SingleGroup
-    {
-        public string displayName;
-        public int countMember;
-        public string groupId;
-        public string creationDate;
-        public string description;
-        public IEnumerable<string> groupType;
-        public List<String> userlist;
-
-        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType, List<String> userlist)
-        {
-            this.displayName = displayName;
-            this.countMember = countMember;
-            this.groupId = groupId;
-            this.creationDate = creationDate;
-            this.description = description;
-            this.groupType = groupType;
-            this.userlist = userlist;
-        }
-    }
 }
-

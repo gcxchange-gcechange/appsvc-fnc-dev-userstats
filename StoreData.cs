@@ -17,22 +17,28 @@ namespace appsvc_fnc_dev_userstats
         // Run everyday at 3am
         public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context )
         {
-            log.LogInformation($"C# Http trigger function executed at: {DateTime.Now}");
+            log.LogInformation($"StoreData function received a request at: {DateTime.Now}");
+            log.LogInformation(" ");
 
             //Get UserStats
             var userdata = new UserStats();
             var usersdata = await userdata.UserStatsDataAsync(log);
             var ResultUsersStore = await StoreDataUserFile(context, usersdata, "userstats", log);
+            log.LogInformation(" ");
 
             //Get GroupStats
             var groupdata = new GroupStats();
             var groupsdata = await groupdata.GroupStatsDataAsync(log);
             var ResultGroupsStore = await StoreDataGroupFile(context, groupsdata, "groupstats", log);
+            log.LogInformation(" ");
 
             //Get ActiveUsers
             var activeuserdata = new ActiveUsers(log);
             var activeusersdata = await activeuserdata.GetActiveUserCount();
             var ResultAcvtiveUsersStore = await StoreDataActiveUsersFile(context, activeusersdata, "activeusers", log);
+            log.LogInformation(" ");
+
+            log.LogInformation($"StoreData function processed a request at: {DateTime.Now}");
         }
 
         public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
@@ -43,19 +49,16 @@ namespace appsvc_fnc_dev_userstats
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
             CloudBlobContainer container = blobClient.GetContainerReference(containerName);
 
-            //CreateFileTitle with date
+            // CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-            //log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
-            //Create file with userData
+            // Create file with userData
             List<usersData> listUsersData = new List<usersData>();
             foreach (var user in usersdata)
             {
-                log.LogInformation($"In storeFile function {user.Id} - {user.creationDate}");
-
                 listUsersData.Add(new usersData()
                 {
                     Id = user.Id,
@@ -73,7 +76,7 @@ namespace appsvc_fnc_dev_userstats
                 LoadStreamWithJson(ms, json);
                 await blob.UploadFromStreamAsync(ms);
             }
-            log.LogInformation($"Blob {FileTitle} is uploaded to container {container.Name}");
+            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
             await blob.SetPropertiesAsync();
 
             return true;
@@ -90,7 +93,6 @@ namespace appsvc_fnc_dev_userstats
             //CreateFileTitle with date
             DateTime now = DateTime.Now;
             string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-           // log.LogInformation($"File {FileTitle}");
 
             CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
 
@@ -98,8 +100,6 @@ namespace appsvc_fnc_dev_userstats
             List<groupsData> listGroupsData = new List<groupsData>();
             foreach (var group in groupsdata)
             {
-                log.LogInformation($"In storeFile function {group.groupId} - {group.creationDate}");
-
                 listGroupsData.Add(new groupsData()
                 {
                     displayName = group.displayName,
@@ -121,7 +121,7 @@ namespace appsvc_fnc_dev_userstats
                 LoadStreamWithJson(ms, json);
                 await blob.UploadFromStreamAsync(ms);
             }
-            log.LogInformation($"Blob {FileTitle} is uploaded to container {container.Name}");
+            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
             await blob.SetPropertiesAsync();
 
             return true;
@@ -153,7 +153,7 @@ namespace appsvc_fnc_dev_userstats
 
             await blob.SetPropertiesAsync();
 
-            log.LogInformation($"Blob {FileTitle} is uploaded to container {container.Name}");
+            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
 
             return true;
         }
@@ -163,7 +163,7 @@ namespace appsvc_fnc_dev_userstats
             CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
             string[] containers = new string[] { ContainerName };
-            logger.LogInformation("Create container");
+            logger.LogInformation($"Create container check: {ContainerName}");
             foreach (var item in containers)
             {
                 CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
