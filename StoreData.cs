@@ -33,7 +33,7 @@ namespace appsvc_fnc_dev_userstats
             log.LogInformation(" ");
 
             //Get ActiveUsers
-            var activeuserdata = new ActiveUsers(log);
+            var activeuserdata = new ActiveUsers(usersdata, log);
             var activeusersdata = await activeuserdata.GetActiveUserCount();
             var ResultAcvtiveUsersStore = await StoreDataActiveUsersFile(context, activeusersdata, "activeusers", log);
             log.LogInformation(" ");

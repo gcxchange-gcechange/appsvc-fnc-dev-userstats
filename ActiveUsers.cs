@@ -22,7 +22,9 @@ namespace appsvc_fnc_dev_userstats
         string tenantid;
         string workspaceId;
 
-        public ActiveUsers(ILogger logger)
+        List<usersData> AllUsersList;
+
+        public ActiveUsers(List<usersData> allUsersList, ILogger logger)
         {
             // Initialize variables
             
@@ -32,6 +34,7 @@ namespace appsvc_fnc_dev_userstats
             tenantid = config["tenantid"];
             workspaceId = config["workspaceId"];
 
+            AllUsersList = allUsersList;
             log = logger;
 
             SecretClientOptions options = new SecretClientOptions()
@@ -83,7 +86,6 @@ namespace appsvc_fnc_dev_userstats
             }
         }
 
-
         private List<ActiveUserCountByDomain> GetActiveUsersByDomain()
         {
             log.LogInformation("GetActiveUsersByDomain received a request.");
@@ -106,11 +108,11 @@ namespace appsvc_fnc_dev_userstats
 
                     try
                     {
-                        var result = graphAPIAuth.Users[user.userid].Request().Select("mail").GetAsync();
+                        int idx = AllUsersList.FindIndex(item => item.Id == user.userid);
 
-                        if (result.Result.Mail != null)
+                        if (idx > -1 && AllUsersList[idx].mail != null)
                         {
-                            mail = result.Result.Mail;
+                            mail = AllUsersList[idx].mail;
                             domain = mail.Substring(mail.IndexOf("@") + 1);
                         }
                     }
