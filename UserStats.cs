@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System;
 
 namespace appsvc_fnc_dev_userstats
 {

@@ -25,16 +25,11 @@ namespace appsvc_fnc_dev_userstats
         [FunctionName("SiteStorage")]
 
         public static async Task Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer, ILogger log, ExecutionContext context)
-       // public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.System, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext context)
-
         {
             IConfiguration config = new ConfigurationBuilder()
-
-
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
             .Build();
-
 
             List<Group> GroupList = new List<Group>();
             List<Drives> drivesList = new List<Drives>();
@@ -189,20 +184,14 @@ namespace appsvc_fnc_dev_userstats
         private static async Task<dynamic> GetDriveDataAsync(string groupId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives";
-            //log.LogInformation($"DriveURL2:{requestUri}");
-
             return await SendGraphRequestAsync(requestUri, "2", log);
         }
 
         private static async Task<dynamic> GetFolderListsAsync(string groupId, string driveId, ILogger log)
         {
             var requestUri = $"https://graph.microsoft.com/v1.0/groups/{groupId}/Drives/{driveId}/list/items?$select=id,createdDateTime,lastModifiedDateTime,contentType";
-            //log.LogInformation($"Folder List 3:{requestUri}");
-            
             return await SendGraphRequestAsync(requestUri, "3", log);
         }
-
-      
 
         private static async Task<dynamic> SendGraphRequestAsync(string requestUri, string batchId, ILogger log)
         {
@@ -249,7 +238,6 @@ namespace appsvc_fnc_dev_userstats
                     dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
                     log.LogInformation($"{responseBody}");
                     var nextPageLink = responseData["@odata.nextLink"];
-                    //log.LogInformation($"1{responseData}");
                     log.LogInformation($"{nextPageLink}");
                     JArray value = responseData["value"];
 
@@ -268,7 +256,6 @@ namespace appsvc_fnc_dev_userstats
 
                             responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
                             nextPageLink = responseData["@odata.nextLink"];
-                           // log.LogInformation($"WHILE LOOP_RESDATA:{responseData}");
                             value = responseData["value"];
 
                             valueAll.Merge(value);
@@ -305,7 +292,6 @@ namespace appsvc_fnc_dev_userstats
             log.LogInformation("Create container");
             foreach (var item in containers)
             {
-               // log.LogInformation($"ITEM:{item}");
                 CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
                 await blobContainer.CreateIfNotExistsAsync();
             }
