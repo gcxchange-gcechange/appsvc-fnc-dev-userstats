@@ -22,7 +22,9 @@ namespace appsvc_fnc_dev_userstats
         string tenantid;
         string workspaceId;
 
-        public ActiveUsers(ILogger logger)
+        List<usersData> AllUsersList;
+
+        public ActiveUsers(List<usersData> allUsersList, ILogger logger)
         {
             // Initialize variables
             
@@ -32,6 +34,7 @@ namespace appsvc_fnc_dev_userstats
             tenantid = config["tenantid"];
             workspaceId = config["workspaceId"];
 
+            AllUsersList = allUsersList;
             log = logger;
 
             SecretClientOptions options = new SecretClientOptions()
@@ -83,7 +86,6 @@ namespace appsvc_fnc_dev_userstats
             }
         }
 
-
         private List<ActiveUserCountByDomain> GetActiveUsersByDomain()
         {
             log.LogInformation("GetActiveUsersByDomain received a request.");
@@ -101,13 +103,23 @@ namespace appsvc_fnc_dev_userstats
 
                 foreach (activeuserData user in ActiveuserList)
                 {
-                    var result = graphAPIAuth.Users[user.userid].Request().Select("mail").GetAsync();
-                    mail = result.Result.Mail;
+                    domain = "";
+                    mail = "";
 
-                    if (mail != null)
-                        domain = mail.Substring(mail.IndexOf("@") + 1);
-                    else
-                        domain = "";
+                    try
+                    {
+                        int idx = AllUsersList.FindIndex(item => item.Id == user.userid);
+
+                        if (idx > -1 && AllUsersList[idx].mail != null)
+                        {
+                            mail = AllUsersList[idx].mail;
+                            domain = mail.Substring(mail.IndexOf("@") + 1);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.LogWarning($"Error retrieving user id: {user.userid}");
+                    }
 
                     int index = countByDomain.FindIndex(item => item.domain == domain);
 
@@ -135,58 +147,6 @@ namespace appsvc_fnc_dev_userstats
                 return new List<ActiveUserCountByDomain>();
             }
         }
-
-        //private async Task<List<ActiveUserCountByDomain>> GetActiveUsersByDomain()
-        //{
-        //    log.LogInformation("GetActiveUsersByDomain received a request.");
-
-        //    try
-        //    {
-        //        List<ActiveUserCountByDomain> countByDomain = new List<ActiveUserCountByDomain>();
-        //        string domain;
-        //        string mail;
-
-        //        Auth auth = new Auth();
-        //        var graphAPIAuth = auth.graphAuth(log);
-
-        //        log.LogInformation($"GetActiveUsersByDomain - ActiveuserList.Count: {ActiveuserList.Count}");
-
-        //        foreach (activeuserData user in ActiveuserList)
-        //        {
-        //            var result = await graphAPIAuth.Users[user.userid].Request().Select("mail").GetAsync();
-        //            mail = result.Mail;
-
-        //            if (mail != null)
-        //                domain = mail.Substring(mail.IndexOf("@") + 1);
-        //            else
-        //                domain = "";
-
-        //            int index = countByDomain.FindIndex(item => item.domain == domain);
-
-        //            if (index > -1)
-        //            {
-        //                countByDomain[index].count += 1;
-        //            }
-        //            else
-        //            {
-        //                countByDomain.Add(new ActiveUserCountByDomain(domain, 1));
-        //            }
-        //        }
-
-        //        log.LogInformation("GetActiveUsersByDomain processed a request.");
-
-        //        return countByDomain;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        log.LogError(ex.Message);
-        //        log.LogError(ex.StackTrace);
-
-        //        log.LogInformation("GetActiveUsersByDomain processed a request.");
-
-        //        return new List<ActiveUserCountByDomain>();
-        //    }
-        //}
 
         private async Task<List<activeuserData>> GetActiveUserData()
         {
