@@ -1,35 +1,35 @@
-﻿
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Microsoft.WindowsAzure.Storage;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json.Linq;
-using static Microsoft.Graph.Constants;
-using System.Runtime.CompilerServices;
+using Microsoft.Azure.Functions.Worker;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace appsvc_fnc_dev_userstats
 {
     class SiteStorage
     {
-        [FunctionName("SiteStorage")]
+        private readonly ILogger<SiteStorage> _logger;
 
-        public static async Task Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer, ILogger log, ExecutionContext context)
+        public SiteStorage(ILogger<SiteStorage> logger)
         {
-            IConfiguration config = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-            .AddEnvironmentVariables()
-            .Build();
+            _logger = logger;
+        }
+
+        [Function("SiteStorage")]
+        public async Task Run([TimerTrigger("0 12 * * 0")] TimerInfo myTimer)
+        {
+            IConfiguration config = new ConfigurationBuilder().AddJsonFile("appsettings.json", optional: true, reloadOnChange: true).AddEnvironmentVariables().Build();
+
+            string connectionString = config["AzureWebJobsStorage"];
+            string containerName = "groupsitestorage";
 
             List<Group> GroupList = new List<Group>();
             List<Drives> drivesList = new List<Drives>();
@@ -48,25 +48,24 @@ namespace appsvc_fnc_dev_userstats
             string createdDate;
             string lastModifiedDateTime;
 
-
-            var groupData = await GetGroupsAsync(log);
+            var groupData = await GetGroupsAsync(_logger);
 
             foreach (var group in groupData)
             {
                 groupId = group.id;
                 groupDisplayName = group.displayName;
-                 
+
                 var groups = new List<Task<dynamic>>
                 {
-                    GetDriveDataAsync(groupId, log)
+                    GetDriveDataAsync(groupId, _logger)
                 };
 
                 await Task.WhenAll(groups);
-            
+
                 foreach (var driveData in groups)
                 {
                     dynamic drive = await driveData;
-                 
+
                     quotaRemaining = drive[0].quota.remaining;
                     quotaTotal = drive[0].quota.total;
                     quotaUsed = drive[0].quota.used;
@@ -74,60 +73,54 @@ namespace appsvc_fnc_dev_userstats
 
                     drivesList = new List<Drives>();
 
-                    foreach (var item in drive) 
+                    foreach (var item in drive)
                     {
-                        
+
                         driveId = item.id;
                         driveName = item.name;
                         driveType = item.driveType;
 
                         var driveListItems = new List<Task<dynamic>>
                         {
-                             GetFolderListsAsync(groupId, driveId, log)
+                             GetFolderListsAsync(groupId, driveId, _logger)
                         };
 
                         await Task.WhenAll(driveListItems);
 
                         folderListItems = new List<Folders>();
 
-                        foreach (var listItemsTask in driveListItems) 
+                        foreach (var listItemsTask in driveListItems)
                         {
                             dynamic listItems = await listItemsTask;
 
-                            if (listItems != null ) {
+                            if (listItems != null)
+                            {
 
                                 try
+ 
                                 {
                                     foreach (var listItem in listItems)
                                     {
-                                        log.LogInformation($"listItem:{listItem}");
-                                        fileId = listItem.id;
+                                         fileId = listItem.id;
                                         fileName = listItem.contentType.name;
                                         createdDate = listItem.createdDateTime;
                                         lastModifiedDateTime = listItem.lastModifiedDateTime;
 
                                         if (listItem != null)
                                         {
-
                                             folderListItems.Add(new Folders(fileId, fileName, createdDate, lastModifiedDateTime));
-
-                                        } 
-
+                                        }
                                     }
                                 }
-                                catch(Exception ex)
+                                catch (Exception ex)
                                 {
-                                    log.LogError($"Error:{ ex.Message}");
-                                    log.LogError($"Stack Trace:{ex.StackTrace}");
+                                    _logger.LogError($"Error:{ex.Message}");
+                                    _logger.LogError($"Stack Trace:{ex.StackTrace}");
                                 }
-
-                               
                             }
                         }
                         drivesList.Add(new Drives(driveId, driveName, driveType, folderListItems));
                     }
-                   
-
                 }
 
                 GroupList.Add(new Group(
@@ -137,40 +130,26 @@ namespace appsvc_fnc_dev_userstats
                     quotaUsed,
                     quotaTotal,
                     drivesList
-                    
-
                ));
             }
 
+            await CreateContainerIfNotExists(connectionString, containerName);
 
+            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+            _logger.LogInformation($"File {FileTitle}");
 
-            CreateContainerIfNotExists(context, "groupsitestorage", log);
-
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("groupsitestorage");
-
-            string FileTitle = DateTime.Now.ToString("dd-MM-yyyy") + "-" + "groupsitestorage" + ".json";
-            log.LogInformation($"File {FileTitle}");
-
-            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
+            BlobClient blobClient = new BlobClient(connectionString, containerName, FileTitle);
 
             string jsonFile = JsonConvert.SerializeObject(GroupList, Formatting.Indented);
 
-
-            log.LogInformation($"JSON: {jsonFile}");
-
-            blob.Properties.ContentType = "application/json";
-
             using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(jsonFile)))
             {
-                await blob.UploadFromStreamAsync(ms);
+                await blobClient.UploadAsync(ms, true); // overwrite existing = true
             }
 
-            await blob.SetPropertiesAsync();
-
-            // return new OkResult();
-
+            BlobHttpHeaders headers = new BlobHttpHeaders();
+            headers.ContentType = "application/json";
+            await blobClient.SetHttpHeadersAsync(headers);
         }
 
         private static async Task<dynamic> GetGroupsAsync(ILogger log)
@@ -198,31 +177,29 @@ namespace appsvc_fnc_dev_userstats
             int maxRetryCount = 3;
             int retryDelayInSeconds = 3000;
 
-            var batch = new BatchRequestContent();
-            BatchResponseContent batchResponse = null;
-
             Auth auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
+
+            BatchRequestContentCollection batchCollection = new BatchRequestContentCollection(graphAPIAuth);
+            BatchResponseContentCollection myResponse = null;
             BatchRequestStep step = new BatchRequestStep(batchId, new HttpRequestMessage(HttpMethod.Get, requestUri));
 
             JArray valueAll;
 
             try
             {
-                batch.AddBatchRequestStep(step);
-
-                Dictionary<string, HttpResponseMessage> response = null;
+                batchCollection.AddBatchRequestStep(step);
+                HttpResponseMessage response = null;
 
                 for (int retryCount = 0; retryCount <= maxRetryCount; retryCount++)
                 {
-                    batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
-                    response = await batchResponse.GetResponsesAsync();
+                    myResponse = await graphAPIAuth.Batch.PostAsync(batchCollection);
+                    response = await myResponse.GetResponseByIdAsync(batchId);
 
-                    if (response[batchId].Headers.Contains("Retry-After"))
+                    if (response.Headers.Contains("Retry-After"))
                     {
                         log.LogInformation($"Received a throttle response. Retrying in {retryDelayInSeconds} seconds.");
-                        // Sleep for the specified delay before retrying
-                        await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds));
+                        await Task.Delay(TimeSpan.FromSeconds(retryDelayInSeconds)); // Sleep for the specified delay before retrying
                         retryDelayInSeconds *= 2; // Exponential backoff for retry delay
                     }
                     else
@@ -231,14 +208,12 @@ namespace appsvc_fnc_dev_userstats
                     }
                 }
 
-                if (batchResponse != null)
+                if (myResponse != null)
                 {
-                    var responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
-
+                    var responseBody = await new StreamReader(response.Content.ReadAsStreamAsync().Result).ReadToEndAsync();
                     dynamic responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
-                    log.LogInformation($"{responseBody}");
                     var nextPageLink = responseData["@odata.nextLink"];
-                    log.LogInformation($"{nextPageLink}");
+
                     JArray value = responseData["value"];
 
                     valueAll = value;
@@ -246,13 +221,16 @@ namespace appsvc_fnc_dev_userstats
                     while (nextPageLink != null)
                     {
                         step.Request.RequestUri = nextPageLink;
-                        batch.AddBatchRequestStep(step);
-                        batchResponse = await graphAPIAuth.Batch.Request().PostAsync(batch);
 
-                        if (batchResponse != null)
+                        batchCollection = new BatchRequestContentCollection(graphAPIAuth);
+                        batchCollection.AddBatchRequestStep(step);
+
+                        myResponse = await graphAPIAuth.Batch.PostAsync(batchCollection);
+
+                        if (myResponse != null)
                         {
-                            response = await batchResponse.GetResponsesAsync();
-                            responseBody = await new StreamReader(response[batchId].Content.ReadAsStreamAsync().Result).ReadToEndAsync();
+                            response = await myResponse.GetResponseByIdAsync(batchId);
+                            responseBody = await new StreamReader(response.Content.ReadAsStreamAsync().Result).ReadToEndAsync();
 
                             responseData = JsonConvert.DeserializeObject<dynamic>(responseBody);
                             nextPageLink = responseData["@odata.nextLink"];
@@ -271,6 +249,7 @@ namespace appsvc_fnc_dev_userstats
                 else
                 {
                     log.LogError("Max retry count reached. Unable to proceed.");
+                    log.LogError($"batchResponse null: {myResponse == null}");
                     return null;
                 }
             }
@@ -283,93 +262,12 @@ namespace appsvc_fnc_dev_userstats
             }
         }
 
-    
-        private static async void CreateContainerIfNotExists(ExecutionContext executionContext, string containerName, ILogger log)
+        public async Task CreateContainerIfNotExists(string connectionString, string containerName)
         {
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            string[] containers = new string[] { containerName };
-            log.LogInformation("Create container");
-            foreach (var item in containers)
-            {
-                CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
-                await blobContainer.CreateIfNotExistsAsync();
-            }
+            _logger.LogInformation($"Create container check: {containerName}");
+            BlobContainerClient container = new BlobContainerClient(connectionString, containerName);
+            await container.CreateIfNotExistsAsync();
+            _logger.LogInformation($"Container check complete.");
         }
-
-        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
-        {
-            var config = new ConfigurationBuilder()
-                            .SetBasePath(executionContext.FunctionAppDirectory)
-                            .AddJsonFile("local.settings.json", true, true)
-                            .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
-
-            return storageAccount;
-
-        }
-
-        public class Group
-        {
-            public string groupId;
-            public string displayName;
-            public string remainingStorage;
-            public string usedStorage;
-            public string totalStorage;
-
-            public List<Drives> drivesList;
-
-
-            public Group(string groupId, string displayName,  string remainingStorage, string usedStorage, string totalStorage,  List<Drives> drivesList ) 
-            {
-                this.groupId = groupId;
-                this.displayName = displayName;
-                this.remainingStorage = remainingStorage;
-                this.usedStorage = usedStorage;
-                this.totalStorage = totalStorage;
-                this.drivesList = drivesList ?? new List<Drives>();
-
-            }
-        }
-
-        public class Folders
-        {
-            public string fileId;
-            public string fileName;
-            public string createdDate { get; set; }
-            public string lasModifiedDate { get; set; }
-
-
-            public Folders(string fileId, string fileName , string createdDate, string lastModifiedDate)
-            {
-                this.fileId = fileId;
-                this.fileName = fileName;
-                this.createdDate = createdDate;
-                this.lasModifiedDate = lastModifiedDate;
-
-            }
-        }
-
-        public class Drives
-        {
-            public string driveId;
-            public string driveName;
-            public string driveType;
-            public List <Folders> folderListItems;
-
-
-            public Drives(string driveId, string driveName, string driveType, List<Folders> folderListItems)
-            {
-                this.driveId = driveId;
-                this.driveName = driveName;
-                this.driveType = driveType;
-                this.folderListItems = folderListItems;
-
-               
-            }
-        }
-
-        
-
     }
 }
