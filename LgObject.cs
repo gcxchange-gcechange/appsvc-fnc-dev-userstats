@@ -39,7 +39,8 @@ namespace appsvc_fnc_dev_userstats
         public string domain;
         public int count;
 
-        public ActiveUserCountByDomain(string domainName, int userCount) {
+        public ActiveUserCountByDomain(string domainName, int userCount)
+        {
             domain = domainName;
             count = userCount;
         }
@@ -48,17 +49,20 @@ namespace appsvc_fnc_dev_userstats
     public class SingleGroup
     {
         public string displayName;
-        public int countMember;
         public string groupId;
         public string creationDate;
         public string description;
         public IEnumerable<string> groupType;
         public List<String> userlist;
 
-        public SingleGroup(string displayName, int countMember, string groupId, string creationDate, string description, IEnumerable<string> groupType, List<String> userlist)
+        public int countMember
+        {
+            get { return (userlist != null ? userlist.Count : 0); }
+        }
+
+        public SingleGroup(string displayName, string groupId, string creationDate, string description, IEnumerable<string> groupType, List<String> userlist)
         {
             this.displayName = displayName;
-            this.countMember = countMember;
             this.groupId = groupId;
             this.creationDate = creationDate;
             this.description = description;

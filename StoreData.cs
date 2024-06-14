@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Microsoft.Azure.Functions.Worker;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using System.Diagnostics;
 
 namespace appsvc_fnc_dev_userstats
 {
@@ -24,9 +25,11 @@ namespace appsvc_fnc_dev_userstats
         // Run everyday at 3am
         public async Task Run([TimerTrigger("0 0 3 * * *")] TimerInfo myTimer)
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             _logger.LogInformation($"StoreData function received a request at: {DateTime.Now}");
             _logger.LogInformation(" ");
-
 
             var config = new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).AddEnvironmentVariables().Build();
             string connectionString = config["AzureWebJobsStorage"];
@@ -50,12 +53,16 @@ namespace appsvc_fnc_dev_userstats
             _logger.LogInformation(" ");
 
             _logger.LogInformation($"StoreData function processed a request at: {DateTime.Now}");
+
+            stopwatch.Stop();
+            _logger.LogInformation($"Elapsed time: {stopwatch.Elapsed}");
         }
 
         public async Task<bool> StoreDataUserFile(List<usersData> usersdata, string connectionString, string containerName)
         {
 
-            try {
+            try
+            {
                 await CreateContainerIfNotExists(connectionString, containerName);
 
                 // CreateFileTitle with date
@@ -107,7 +114,8 @@ namespace appsvc_fnc_dev_userstats
 
         public async Task<bool> StoreDataGroupFile(List<SingleGroup> groupsdata, string connectionString, string containerName)
         {
-            try {
+            try
+            {
                 await CreateContainerIfNotExists(connectionString, containerName);
 
                 //CreateFileTitle with date
@@ -162,9 +170,10 @@ namespace appsvc_fnc_dev_userstats
 
         public async Task<bool> StoreDataActiveUsersFile(List<countactiveuserData> activeusersdata, string connectionString, string containerName)
         {
-            try {
+            try
+            {
                 await CreateContainerIfNotExists(connectionString, containerName);
-                
+
                 // Create file title with date
                 DateTime now = DateTime.Now;
                 string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
@@ -207,7 +216,7 @@ namespace appsvc_fnc_dev_userstats
             _logger.LogInformation($"Container check complete.");
         }
 
-         private void LoadStreamWithJson(Stream ms, string obj)
+        private void LoadStreamWithJson(Stream ms, string obj)
         {
             StreamWriter writer = new StreamWriter(ms);
             writer.Write(obj);
