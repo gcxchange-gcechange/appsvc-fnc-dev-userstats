@@ -1,60 +1,64 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
-using Newtonsoft.Json;
-using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Azure.Functions.Worker;
+using Newtonsoft.Json;
+using Azure.Storage.Blobs;
+using System;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace appsvc_fnc_dev_userstats
 {
-    public static class RetreiveData
+    public class RetreiveData
     {
-        [FunctionName("RetreiveData")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
-            ILogger log, ExecutionContext context)
+        private readonly ILogger<RetreiveData> _logger;
+
+        public RetreiveData(ILogger<RetreiveData> logger)
         {
-            string containerName = req.Query["containerName"];
+            _logger = logger;
+        }
 
-            log.LogInformation($"name:{containerName}");
-
+        [Function("RetreiveData")]
+        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req, ExecutionContext context)
+        {
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic data = JsonConvert.DeserializeObject(requestBody);
-            log.LogInformation($"body: {data}");
+
+            string containerName = req.Query["containerName"];
             containerName = containerName ?? data?.containerName;
             string date = data?.selectedDate;
-            
-            log.LogInformation($"name:{containerName}");
-            log.LogInformation($"date2:{date}");
 
-            // check if date is default (today) or different date
+            _logger.LogInformation($"containerName:{containerName}");
+            _logger.LogInformation($"date:{date}");
+
             string fileName = date.ToString() + "-" + containerName + ".json";
-            var Getdata = GetBlob(containerName, fileName, context, log);
+
+            var Getdata = GetBlob(containerName, fileName, context);
 
             return new OkObjectResult(Getdata);
         }
-        public static string GetBlob(string containerName, string fileName, ExecutionContext executionContext, ILogger log)
-        {
-            var config = new ConfigurationBuilder()
-                .SetBasePath(executionContext.FunctionAppDirectory)
-                .AddJsonFile("local.settings.json", true, true)
-                .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["CloudStorageAccount"]);
 
-            // Connect to the blob storage
-            CloudBlobClient serviceClient = storageAccount.CreateCloudBlobClient();
-            // Connect to the blob container
-            CloudBlobContainer container = serviceClient.GetContainerReference($"{containerName}");
-            // Connect to the blob file
-            CloudBlockBlob blob = container.GetBlockBlobReference($"{fileName}");
-            // Get the blob file as text
-            string contents = blob.DownloadTextAsync().Result;
+        private string GetBlob(string containerName, string fileName, ExecutionContext executionContext)
+        {
+            string contents = string.Empty;
+
+            try
+            {
+                IConfiguration config = new ConfigurationBuilder().AddJsonFile("appsettings.json", optional: true, reloadOnChange: true).AddEnvironmentVariables().Build();
+                BlobClient blobClient = new BlobClient(config["CloudStorageAccount"], containerName, fileName);
+                contents = blobClient.DownloadContentAsync().Result.Value.Content.ToString();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("!! Exception !!");
+                _logger.LogError(e.Message);
+                _logger.LogError("!! StackTrace !!");
+                _logger.LogError(e.StackTrace);
+            }
+
             return contents;
         }
     }

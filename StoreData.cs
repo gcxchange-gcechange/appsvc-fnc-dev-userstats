@@ -1,190 +1,225 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Configuration;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
 using System.Collections.Generic;
+using Microsoft.Azure.Functions.Worker;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using System.Diagnostics;
 
 namespace appsvc_fnc_dev_userstats
 {
-    public static class StoreData
+    public class StoreData
     {
-        [FunctionName("StoreData")]
-        // Run everyday at 3am
-        public static async Task Run([TimerTrigger("0 0 3 * * *")]TimerInfo myTimer, ILogger log, ExecutionContext context )
+        private readonly ILogger<StoreData> _logger;
+
+        public StoreData(ILogger<StoreData> logger)
         {
-            log.LogInformation($"StoreData function received a request at: {DateTime.Now}");
-            log.LogInformation(" ");
+            _logger = logger;
+        }
+
+        [Function("StoreData")]
+        // Run everyday at 3am
+        public async Task Run([TimerTrigger("0 0 3 * * *")] TimerInfo myTimer)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            _logger.LogInformation($"StoreData function received a request at: {DateTime.Now}");
+            _logger.LogInformation(" ");
+
+            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json", true, true).AddEnvironmentVariables().Build();
+            string connectionString = config["AzureWebJobsStorage"];
 
             //Get UserStats
             var userdata = new UserStats();
-            var usersdata = await userdata.UserStatsDataAsync(log);
-            var ResultUsersStore = await StoreDataUserFile(context, usersdata, "userstats", log);
-            log.LogInformation(" ");
+            var usersdata = await userdata.UserStatsDataAsync(_logger);
+            var ResultUsersStore = await StoreDataUserFile(usersdata, connectionString, "userstats");
+            _logger.LogInformation(" ");
 
             //Get GroupStats
             var groupdata = new GroupStats();
-            var groupsdata = await groupdata.GroupStatsDataAsync(log);
-            var ResultGroupsStore = await StoreDataGroupFile(context, groupsdata, "groupstats", log);
-            log.LogInformation(" ");
+            var groupsdata = await groupdata.GroupStatsDataAsync(_logger);
+            var ResultGroupsStore = await StoreDataGroupFile(groupsdata, connectionString, "groupstats");
+            _logger.LogInformation(" ");
 
             //Get ActiveUsers
-            var activeuserdata = new ActiveUsers(usersdata, log);
+            var activeuserdata = new ActiveUsers(usersdata, _logger);
             var activeusersdata = await activeuserdata.GetActiveUserCount();
-            var ResultAcvtiveUsersStore = await StoreDataActiveUsersFile(context, activeusersdata, "activeusers", log);
-            log.LogInformation(" ");
+            var ResultAcvtiveUsersStore = await StoreDataActiveUsersFile(activeusersdata, connectionString, "activeusers");
+            _logger.LogInformation(" ");
 
-            log.LogInformation($"StoreData function processed a request at: {DateTime.Now}");
+            _logger.LogInformation($"StoreData function processed a request at: {DateTime.Now}");
+
+            stopwatch.Stop();
+            _logger.LogInformation($"Elapsed time: {stopwatch.Elapsed}");
         }
 
-        public static async Task<bool> StoreDataUserFile(ExecutionContext context, List<appsvc_fnc_dev_userstats.usersData> usersdata, string containerName, ILogger log)
+        public async Task<bool> StoreDataUserFile(List<usersData> usersdata, string connectionString, string containerName)
         {
-            CreateContainerIfNotExists(log, context, containerName);
 
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
-
-            // CreateFileTitle with date
-            DateTime now = DateTime.Now;
-            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-
-            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
-
-            // Create file with userData
-            List<usersData> listUsersData = new List<usersData>();
-            foreach (var user in usersdata)
+            try
             {
-                listUsersData.Add(new usersData()
+                await CreateContainerIfNotExists(connectionString, containerName);
+
+                // CreateFileTitle with date
+                DateTime now = DateTime.Now;
+                string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+
+                _logger.LogInformation($"FileTitle: {FileTitle}");
+
+                // Create file with userData
+                BlobClient blobClient = new BlobClient(connectionString, containerName, FileTitle);
+
+                List<usersData> listUsersData = new List<usersData>();
+                foreach (var user in usersdata)
                 {
-                    Id = user.Id,
-                    creationDate = user.creationDate,
-                    mail = user.mail
-                });
-            }
+                    listUsersData.Add(new usersData()
+                    {
+                        Id = user.Id,
+                        creationDate = user.creationDate,
+                        mail = user.mail
+                    });
+                }
 
-            string json = JsonConvert.SerializeObject(listUsersData.ToArray());
+                string json = JsonConvert.SerializeObject(listUsersData.ToArray());
 
-            blob.Properties.ContentType = "application/json";
-
-            using (var ms = new MemoryStream())
-            {
-                LoadStreamWithJson(ms, json);
-                await blob.UploadFromStreamAsync(ms);
-            }
-            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
-            await blob.SetPropertiesAsync();
-
-            return true;
-        }
-
-        public static async Task<bool> StoreDataGroupFile(ExecutionContext context, List<SingleGroup> groupsdata, string containerName, ILogger log)
-        {
-            CreateContainerIfNotExists(log, context, containerName);
-
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
-
-            //CreateFileTitle with date
-            DateTime now = DateTime.Now;
-            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-
-            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
-
-            //Create file with userData
-            List<groupsData> listGroupsData = new List<groupsData>();
-            foreach (var group in groupsdata)
-            {
-                listGroupsData.Add(new groupsData()
+                using (MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
                 {
-                    displayName = group.displayName,
-                    countMember = group.countMember,
-                    groupId = group.groupId,
-                    creationDate = group.creationDate,
-                    description = group.description,
-                    groupType = group.groupType,
-                    userlist = group.userlist
-                });
+                    LoadStreamWithJson(ms, json);
+                    await blobClient.UploadAsync(ms, true); // overwrite existing = true
+                }
+
+                BlobHttpHeaders headers = new BlobHttpHeaders();
+                headers.ContentType = "application/json";
+                await blobClient.SetHttpHeadersAsync(headers);
+
+                _logger.LogInformation($"Blob {FileTitle} is uploaded to container: {containerName}");
+
+                return true;
             }
-
-            string json = JsonConvert.SerializeObject(listGroupsData.ToArray());
-
-            blob.Properties.ContentType = "application/json";
-
-            using (var ms = new MemoryStream())
+            catch (Exception e)
             {
-                LoadStreamWithJson(ms, json);
-                await blob.UploadFromStreamAsync(ms);
-            }
-            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
-            await blob.SetPropertiesAsync();
+                _logger.LogError("!! Exception !!");
+                _logger.LogError(e.Message);
+                _logger.LogError("!! StackTrace !!");
+                _logger.LogError(e.StackTrace);
 
-            return true;
+                return false;
+            }
         }
 
-        public static async Task<bool> StoreDataActiveUsersFile(ExecutionContext context, List<countactiveuserData> activeusersdata, string containerName, ILogger log)
+        public async Task<bool> StoreDataGroupFile(List<SingleGroup> groupsdata, string connectionString, string containerName)
         {
-            CreateContainerIfNotExists(log, context, containerName);
-
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(context);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
-
-            // Create file title with date
-            DateTime now = DateTime.Now;
-            string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
-
-            // Create file with userData
-            CloudBlockBlob blob = container.GetBlockBlobReference(FileTitle);
-            blob.Properties.ContentType = "application/json";
-
-            string json = JsonConvert.SerializeObject(activeusersdata.ToArray());
-
-            using (var ms = new MemoryStream())
+            try
             {
-                LoadStreamWithJson(ms, json);
-                await blob.UploadFromStreamAsync(ms);
+                await CreateContainerIfNotExists(connectionString, containerName);
+
+                //CreateFileTitle with date
+                DateTime now = DateTime.Now;
+                string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+
+                BlobClient blobClient = new BlobClient(connectionString, containerName, FileTitle);
+
+                //Create file with userData
+                List<groupsData> listGroupsData = new List<groupsData>();
+
+                foreach (var group in groupsdata)
+                {
+                    listGroupsData.Add(new groupsData()
+                    {
+                        displayName = group.displayName,
+                        countMember = group.countMember,
+                        groupId = group.groupId,
+                        creationDate = group.creationDate,
+                        description = group.description,
+                        groupType = group.groupType,
+                        userlist = group.userlist
+                    });
+                }
+
+                string json = JsonConvert.SerializeObject(listGroupsData.ToArray());
+
+                using (var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
+                {
+                    LoadStreamWithJson(ms, json);
+                    await blobClient.UploadAsync(ms, true); // overwrite existing = true
+                }
+
+                BlobHttpHeaders headers = new BlobHttpHeaders();
+                headers.ContentType = "application/json";
+                await blobClient.SetHttpHeadersAsync(headers);
+
+                _logger.LogInformation($"Blob {FileTitle} is uploaded to container: {containerName}");
+
+                return true;
             }
-
-            await blob.SetPropertiesAsync();
-
-            log.LogInformation($"Blob {FileTitle} is uploaded to container: {container.Name}");
-
-            return true;
-        }
-
-        private static async void CreateContainerIfNotExists(ILogger logger, ExecutionContext executionContext, string ContainerName)
-        {
-            CloudStorageAccount storageAccount = GetCloudStorageAccount(executionContext);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            string[] containers = new string[] { ContainerName };
-            logger.LogInformation($"Create container check: {ContainerName}");
-            foreach (var item in containers)
+            catch (Exception e)
             {
-                CloudBlobContainer blobContainer = blobClient.GetContainerReference(item);
-               await blobContainer.CreateIfNotExistsAsync();
+                _logger.LogError("!! Exception !!");
+                _logger.LogError(e.Message);
+                _logger.LogError("!! StackTrace !!");
+                _logger.LogError(e.StackTrace);
+
+                return false;
             }
         }
 
-        private static CloudStorageAccount GetCloudStorageAccount(ExecutionContext executionContext)
+        public async Task<bool> StoreDataActiveUsersFile(List<countactiveuserData> activeusersdata, string connectionString, string containerName)
         {
-            var config = new ConfigurationBuilder()
-                            .SetBasePath(executionContext.FunctionAppDirectory)
-                            .AddJsonFile("local.settings.json", true, true)
-                            .AddEnvironmentVariables().Build();
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(config["AzureWebJobsStorage"]);
-            return storageAccount;
+            try
+            {
+                await CreateContainerIfNotExists(connectionString, containerName);
+
+                // Create file title with date
+                DateTime now = DateTime.Now;
+                string FileTitle = now.ToString("dd-MM-yyyy") + "-" + containerName + ".json";
+
+                // Create file with activeusersdata
+                BlobClient blobClient = new BlobClient(connectionString, containerName, FileTitle);
+
+                string json = JsonConvert.SerializeObject(activeusersdata.ToArray());
+
+                using (var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
+                {
+                    LoadStreamWithJson(ms, json);
+                    await blobClient.UploadAsync(ms, true); // overwrite existing = true
+                }
+
+                BlobHttpHeaders headers = new BlobHttpHeaders();
+                headers.ContentType = "application/json";
+                await blobClient.SetHttpHeadersAsync(headers);
+
+                _logger.LogInformation($"Blob {FileTitle} is uploaded to container: {containerName}");
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("!! Exception !!");
+                _logger.LogError(e.Message);
+                _logger.LogError("!! StackTrace !!");
+                _logger.LogError(e.StackTrace);
+
+                return false;
+            }
         }
-        private static void LoadStreamWithJson(Stream ms, object obj)
+
+        public async Task CreateContainerIfNotExists(string connectionString, string containerName)
+        {
+            _logger.LogInformation($"Create container check: {containerName}");
+            BlobContainerClient container = new BlobContainerClient(connectionString, containerName);
+            await container.CreateIfNotExistsAsync();
+            _logger.LogInformation($"Container check complete.");
+        }
+
+        private void LoadStreamWithJson(Stream ms, string obj)
         {
             StreamWriter writer = new StreamWriter(ms);
             writer.Write(obj);
-            writer.Flush();
             ms.Position = 0;
         }
     }

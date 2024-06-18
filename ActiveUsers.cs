@@ -119,6 +119,7 @@ namespace appsvc_fnc_dev_userstats
                     catch (Exception ex)
                     {
                         log.LogWarning($"Error retrieving user id: {user.userid}");
+                        log.LogError($"{ex.Message}");
                     }
 
                     int index = countByDomain.FindIndex(item => item.domain == domain);
