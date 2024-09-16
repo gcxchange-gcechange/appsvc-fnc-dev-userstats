@@ -161,7 +161,7 @@ namespace appsvc_fnc_dev_userstats
                 //Connect to LA and get distinc log of users
                 Response<LogsQueryResult> response = await client.QueryWorkspaceAsync(
                     workspaceId,
-                    "SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | summarize LastCall = max(TimeGenerated) by UserDisplayName, UserId, UserType | distinct UserId, UserDisplayName, LastCall | where LastCall < ago(1d) | order by LastCall asc",
+                    "SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | where ResourceDisplayName == 'Office 365 SharePoint Online' | where AppDisplayName == 'Office 365 SharePoint Online'  | summarize LastCall = max(TimeGenerated) by UserDisplayName, UserId, UserType, ResourceDisplayName | distinct UserId, UserDisplayName, ResourceDisplayName, LastCall | where LastCall < ago(1d) | order by LastCall asc",
                     new QueryTimeRange(TimeSpan.FromDays(30))
                 );
                 List<activeuserData> ActiveuserList = new List<activeuserData>();
@@ -174,7 +174,7 @@ namespace appsvc_fnc_dev_userstats
                         ActiveuserList.Add(new activeuserData()
                         {
                             UserDisplayName = row["UserDisplayName"].ToString(),
-                            userid = row["UserId"].ToString()
+                            userid = row["UserId"].ToString(),
                         });
                     }
                 }
