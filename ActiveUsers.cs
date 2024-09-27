@@ -161,12 +161,31 @@ namespace appsvc_fnc_dev_userstats
                 //Connect to LA and get distinc log of users
                 Response<LogsQueryResult> response = await client.QueryWorkspaceAsync(
                     workspaceId,
-                    "SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | summarize LastCall = max(TimeGenerated) by UserDisplayName, UserId, UserType | distinct UserId, UserDisplayName, LastCall | where LastCall < ago(1d) | order by LastCall asc",
+                   //"SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | where TimeGenerated < ago (1d)   | distinct UserPrincipalName, UserDisplayName, TimeGenerated, ResourceDisplayName, AppDisplayName | order by TimeGenerated asc",
+                   "SigninLogs | where TimeGenerated > ago(30d) | where UserPrincipalName != UserId | where ResourceDisplayName == 'Office 365 SharePoint Online' or ResourceDisplayName contains 'Microsoft Teams' | where AppDisplayName in ('Microsoft Teams', 'Office 365 SharePoint Online')| summarize LastCall = max(TimeGenerated) by UserDisplayName, UserId, UserType, ResourceDisplayName, AppDisplayName | distinct UserId, UserDisplayName, ResourceDisplayName, AppDisplayName, LastCall | where LastCall < ago(1d) | order by LastCall asc",
                     new QueryTimeRange(TimeSpan.FromDays(30))
                 );
                 List<activeuserData> ActiveuserList = new List<activeuserData>();
                 LogsTable table = response.Value.Table;
+                //log.LogInformation($"ActiveUserList- Response:{response.Value.Table}");
 
+                //log.LogInformation("Table Columns:");
+                //foreach (var column in table.Columns)
+                //{
+                //    log.LogInformation(column.Name);
+                //}
+
+                //log.LogInformation("Table Rows:");
+                //foreach (var row in table.Rows)
+                //{
+                //    var rowData = "";
+
+                //    for (int i = 0; i < table.Columns.Count; i++)
+                //    {
+                //        rowData += $"{table.Columns[i].Name}: {row[i]}, ";
+                //    }
+                //    log.LogInformation(rowData);
+                //}
                 foreach (var row in table.Rows)
                 {
                     if (ActiveuserList.FindIndex(item => item.userid == row["UserId"].ToString()) == -1)
@@ -174,7 +193,7 @@ namespace appsvc_fnc_dev_userstats
                         ActiveuserList.Add(new activeuserData()
                         {
                             UserDisplayName = row["UserDisplayName"].ToString(),
-                            userid = row["UserId"].ToString()
+                            userid = row["UserId"].ToString(),
                         });
                     }
                 }
